@@ -1,9 +1,11 @@
 # N8N Workflows
-![n8n](https://img.shields.io/badge/n8n-Automation-FF6D5A)
-![GitHub stars](https://img.shields.io/github/stars/shahzaib-1-no/N8N-Workflows)
-![GitHub forks](https://img.shields.io/github/forks/shahzaib-1-no/N8N-Workflows)
-![GitHub last commit](https://img.shields.io/github/last-commit/shahzaib-1-no/N8N-Workflows)
-![GitHub repo size](https://img.shields.io/github/repo-size/shahzaib-1-no/N8N-Workflows)
+<p align="center">
+  <img src="https://img.shields.io/badge/n8n-Workflows-FF6D5A?logo=n8n&logoColor=white" />
+  <img src="https://img.shields.io/github/stars/shahzaib-1-no/N8N-Workflows?style=flat" />
+  <img src="https://img.shields.io/github/forks/shahzaib-1-no/N8N-Workflows?style=flat" />
+  <img src="https://img.shields.io/github/last-commit/shahzaib-1-no/N8N-Workflows" />
+  <img src="https://img.shields.io/github/license/shahzaib-1-no/N8N-Workflows" />
+</p>
 A curated collection of production-ready n8n workflows for business automation, AI agents, marketing, e-commerce, and integrations.
 
 ## Categories
