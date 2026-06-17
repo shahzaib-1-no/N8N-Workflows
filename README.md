@@ -1,2 +1,6 @@
-# N8N-Workflows
-Production-ready n8n workflows, AI agents, and automation templates for real-world use cases.
+# N8N Workflows
+
+A collection of production-ready n8n workflows organized by category.
+
+## Categories
+- Woocommerce
