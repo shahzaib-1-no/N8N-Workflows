@@ -1,0 +1,379 @@
+{
+  "name": "Woocomerece VIP Customer RFM Auto-Tagging",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "order.updated"
+      },
+      "id": "70d75969-09d7-4a21-a836-2df9f76ac943",
+      "name": "WooCommerce Trigger",
+      "type": "n8n-nodes-base.wooCommerceTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1264,
+        320
+      ],
+      "webhookId": "dfa4ab4f-e7e5-4fb0-98a5-aab7951eda96"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b30f0be8-cff9-4024-bf70-cfee85740f7f",
+      "name": "IF: Order Completed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1024,
+        320
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "7beb9f1a-979d-4d69-99ef-9debd4a54893",
+      "name": "Not Completed - Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "order",
+        "operation": "getAll",
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "788d6f7b-9540-4fe8-a7b1-8e3633eaaa9c",
+      "name": "Get Customer Orders",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// $input.all() = all customer orders from WooCommerce node\n// Why returnAll: partial history skews frequency + monetary scores\nconst orders = $input.all();\n\n// Trigger data: email, name, customer_id from original webhook payload\n// Skip karne se customer ka identity nahi milega Klaviyo/Slack ke liye\nconst trigger = $('WooCommerce Trigger').first().json;\nconst customerEmail = trigger.billing?.email || '';\nconst customerId = trigger.customer_id || 0;\nconst customerName = ((trigger.billing?.first_name || '') + ' ' + (trigger.billing?.last_name || '')).trim();\n\nconst now = new Date();\n\n// Sirf completed orders count karo — cancelled/refunded include karna RFM ko galat karega\nconst completedOrders = orders.filter(o => o.json.status === 'completed');\nconst totalOrders = completedOrders.length;\n\n// MONETARY: lifetime value = sum of all completed order totals\nconst totalSpend = completedOrders.reduce((sum, o) => {\n  return sum + parseFloat(o.json.total || '0');\n}, 0);\n\n// RECENCY: days since most recent completed order\n// fallback 365: agar koi order nahi to recency score 1 (worst) milega\nconst orderDates = completedOrders\n  .map(o => new Date(o.json.date_created))\n  .filter(d => !isNaN(d.getTime()));\n\nlet daysSinceLastOrder = 365;\nif (orderDates.length > 0) {\n  const mostRecent = new Date(Math.max(...orderDates.map(d => d.getTime())));\n  daysSinceLastOrder = Math.floor((now.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24));\n}\n\n// --- RECENCY SCORE (1-5) ---\n// Thresholds adjust karo apne store ke purchase cycle ke hisaab se\n// e.g. subscription store mein 7/30/60 zyada suitable hai\nlet recencyScore;\nif (daysSinceLastOrder <= 30) recencyScore = 5;\nelse if (daysSinceLastOrder <= 60) recencyScore = 4;\nelse if (daysSinceLastOrder <= 90) recencyScore = 3;\nelse if (daysSinceLastOrder <= 180) recencyScore = 2;\nelse recencyScore = 1;\n\n// --- FREQUENCY SCORE (1-5) ---\n// Thresholds adjust karo average order frequency ke hisaab se\nlet frequencyScore;\nif (totalOrders >= 10) frequencyScore = 5;\nelse if (totalOrders >= 7) frequencyScore = 4;\nelse if (totalOrders >= 4) frequencyScore = 3;\nelse if (totalOrders >= 2) frequencyScore = 2;\nelse frequencyScore = 1;\n\n// --- MONETARY SCORE (1-5) ---\n// Thresholds adjust karo apne store ke AOV (Average Order Value) ke hisaab se\nlet monetaryScore;\nif (totalSpend >= 1000) monetaryScore = 5;\nelse if (totalSpend >= 500) monetaryScore = 4;\nelse if (totalSpend >= 200) monetaryScore = 3;\nelse if (totalSpend >= 100) monetaryScore = 2;\nelse monetaryScore = 1;\n\n// Total RFM Score — max 15, VIP threshold = 12 (IF node mein set hai)\nconst rfmScore = recencyScore + frequencyScore + monetaryScore;\n\nreturn [{\n  json: {\n    rfm_score: rfmScore,\n    recency_score: recencyScore,\n    frequency_score: frequencyScore,\n    monetary_score: monetaryScore,\n    total_orders: totalOrders,\n    total_spend: totalSpend,\n    days_since_last_order: daysSinceLastOrder,\n    customer_email: customerEmail,\n    customer_id: customerId,\n    customer_name: customerName\n  }\n}];"
+      },
+      "id": "ac22977f-6cb8-4d6c-b8e8-233f9b633be5",
+      "name": "Calculate RFM Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.rfm_score }}",
+              "rightValue": 12,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "497688b4-1a0a-4a06-a6bf-c1cd9be2a0cd",
+      "name": "IF: VIP Score",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        304
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "3f59666b-31c0-40c2-9155-4479e057f8c0",
+      "name": "Not VIP - Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        464,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/profile-import/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-04-15"
+            },
+            {
+              "name": "accept",
+              "value": "application/vnd.api+json"
+            },
+            {
+              "name": "content-type",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/vnd.api+json",
+        "body": "={{ JSON.stringify({ data: { type: 'profile', attributes: { email: $json.customer_email, external_id: String($json.customer_id), properties: { vip_tier: 'VIP_Tier_1', rfm_score: $json.rfm_score, total_orders: $json.total_orders, total_spend: $json.total_spend } } } }) }}",
+        "options": {}
+      },
+      "id": "e4183f37-fd19-40e2-b28a-6a8a3f12455c",
+      "name": "Klaviyo: Get or Create Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        256,
+        288
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/lists/YOUR_KLAVIYO_LIST_ID/relationships/profiles",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-04-15"
+            },
+            {
+              "name": "accept",
+              "value": "application/vnd.api+json"
+            },
+            {
+              "name": "content-type",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/vnd.api+json",
+        "body": "={{ JSON.stringify({ data: [{ type: 'profile', id: $('Klaviyo: Get or Create Profile').first().json.data.id }] }) }}",
+        "options": {}
+      },
+      "id": "8785fe56-0c58-4575-b252-20d6d6ad8b8e",
+      "name": "Klaviyo: Add to VIP List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        736,
+        288
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "text": "=:trophy: *Naya VIP Customer identify hua!*\n\n*Naam:* {{ $('Calculate RFM Score').first().json.customer_name }}\n*Email:* {{ $('Calculate RFM Score').first().json.customer_email }}\n*RFM Score:* {{ $('Calculate RFM Score').first().json.rfm_score }}/15 (R:{{ $('Calculate RFM Score').first().json.recency_score }} F:{{ $('Calculate RFM Score').first().json.frequency_score }} M:{{ $('Calculate RFM Score').first().json.monetary_score }})\n*Total Orders:* {{ $('Calculate RFM Score').first().json.total_orders }}\n*Lifetime Spend:* ${{ $('Calculate RFM Score').first().json.total_spend.toFixed(2) }}\n\nKlaviyo mein *VIP_Tier_1* list mein add ho gaya. :white_check_mark:",
+        "otherOptions": {}
+      },
+      "id": "b8ce2f9f-f82e-470a-ab55-c8263d3cec65",
+      "name": "Slack: New VIP Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        992,
+        288
+      ],
+      "webhookId": "f15882d1-6e52-4802-9985-89b8a19b15f0"
+    },
+    {
+      "parameters": {
+        "content": "# WooCommerce to Klaviyo VIP Automation using RFM Scoring",
+        "height": 80,
+        "width": 1040
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -768,
+        96
+      ],
+      "typeVersion": 1,
+      "id": "b9b0fe12-fc67-43f4-b63e-727931bff205",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Overview\n### When an order is marked completed in WooCommerce, this workflow finds your best customers automatically:\n\n1) Triggers on order.updated\n2) Continues only if status = \"completed\"\n3) Pulls all completed orders for that customer\n4) Calculates RFM score (Recency, Frequency, Monetary)\n5) If RFM total ≥ 12 → treats as VIP\n6) Creates/updates profile in Klaviyo with VIP properties\n7) Adds profile to Klaviyo VIP_Tier_1 list\n8) Posts detailed VIP alert in Slack",
+        "height": 304,
+        "width": 416
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1904,
+        192
+      ],
+      "id": "0163f4a9-92b3-4297-95ac-d71ae7990205",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "Node-by-node Purpose\n1. WooCommerce Trigger\nevent: order.updated — Listens for WooCommerce order updates via webhook\n2. IF: Order Completed\nIF $json.status equals completed — Routes to Get Customer Orders if true, to Not Completed - Stop if false\n3. Not Completed - Stop\ntype: noOp — Terminates workflow for non-completed orders\n4. Get Customer Orders\nresource: order — Targets WooCommerce orders\noperation: getAll — Fetches complete order history\nreturnAll: true — Ensures full history to avoid skewed RFM calculation\n5. Calculate RFM Score\nlogic: jsCode — Calculates RFM from completed orders only; Recency: <=30 days=5, <=60=4, <=90=3, <=180=2, else 1; Frequency: >=10 orders=5, >=7=4, >=4=3, >=2=2, else 1; Monetary: >=$1000=5, >=$500=4, >=$200=3, >=$100=2, else 1; outputs rfm_score, customer_email, customer_id, customer_name, totals\n6. IF: VIP Score\nIF $json.rfm_score >= 12 — Routes to Klaviyo flow if true, to Not VIP - Stop if false\n7. Not VIP - Stop\ntype: noOp — Terminates workflow for customers below VIP threshold\n8. Klaviyo: Get or Create Profile\nmethod: POST — Creates or updates profile via Klaviyo API\nurl: https://a.klaviyo.com/api/profile-import/ — Profile import endpoint\nbody: vip_tier: VIP_Tier_1, rfm_score, total_orders, total_spend — Stores VIP status and RFM data on profile\n9. Klaviyo: Add to VIP List\nmethod: POST — Adds profile to list\nurl: https://a.klaviyo.com/api/lists/YOUR_KLAVIYO_LIST_ID/relationships/profiles — VIP list relationship endpoint\naction: Subscribes the profile ID from previous node to VIP segment\n10. Slack: New VIP Alert\ntext: Slack message — Posts trophy alert with name, email, RFM score/15 with R/F/M breakdown, total orders, and lifetime spend in $",
+        "height": 784,
+        "width": 528
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1232,
+        -16
+      ],
+      "typeVersion": 1,
+      "id": "368fea0b-9ca9-43a8-8130-35c0c4d3b755",
+      "name": "Sticky Note2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WooCommerce Trigger": {
+      "main": [
+        [
+          {
+            "node": "IF: Order Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Order Completed": {
+      "main": [
+        [
+          {
+            "node": "Get Customer Orders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not Completed - Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Orders": {
+      "main": [
+        [
+          {
+            "node": "Calculate RFM Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate RFM Score": {
+      "main": [
+        [
+          {
+            "node": "IF: VIP Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: VIP Score": {
+      "main": [
+        [
+          {
+            "node": "Klaviyo: Get or Create Profile",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not VIP - Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Klaviyo: Get or Create Profile": {
+      "main": [
+        [
+          {
+            "node": "Klaviyo: Add to VIP List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Klaviyo: Add to VIP List": {
+      "main": [
+        [
+          {
+            "node": "Slack: New VIP Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "4eb1d5ce-eafa-48bd-bce2-637803321a0e",
+  "meta": {
+    "instanceId": "e1f53822c1dd3bfd16c73e148fe6df093b0e5e171f5879fb4fc94007ad73a3e2"
+  },
+  "id": "wAjHAFUrTfB54a0Z",
+  "tags": []
+}
