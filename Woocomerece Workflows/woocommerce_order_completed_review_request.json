@@ -1,0 +1,1014 @@
+{
+  "name": "woocommerce_order_completed_review_request",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "order.updated"
+      },
+      "id": "9deb6836-9484-4945-b145-35f27721f557",
+      "name": "Order Completed Trigger",
+      "type": "n8n-nodes-base.wooCommerceTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2272,
+        128
+      ],
+      "webhookId": "e3d38410-f76d-4d78-a423-8b8c7c726fe9"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "988122b0-0c1c-49a1-accc-8730d7f40914",
+      "name": "Is Order Completed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2032,
+        128
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "1fb374c2-a5b1-4acf-aba1-f177145e8302",
+      "name": "Ignore - Not Completed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1776,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://YOUR-STORE.gorgias.com/api/customers",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.billing.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f0723b19-ead9-49d3-9cab-71e3f9102c54",
+      "name": "Gorgias Get Customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1776,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nconst list = Array.isArray(body) ? body : (body.data || []);\nconst customer = list[0] || null;\nreturn [{ json: { customerId: customer ? customer.id : null } }];"
+      },
+      "id": "b1480c8f-4dd0-4079-b6a8-c5a815a6d0f4",
+      "name": "Extract Gorgias Customer ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1536,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://YOUR-STORE.gorgias.com/api/tickets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "customer_id",
+              "value": "={{ $json.customerId }}"
+            },
+            {
+              "name": "status",
+              "value": "open"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3a4569ea-cdcc-4460-ac71-4730125e6df2",
+      "name": "Gorgias List Open Tickets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1280,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nconst list = Array.isArray(body) ? body : (body.data || []);\nreturn [{ json: { hasComplaint: list.length > 0 } }];"
+      },
+      "id": "7e3b14a2-08bc-4703-badb-300007b1031c",
+      "name": "Check Has Complaint",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1024,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.hasComplaint }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6f71d954-87f2-4f43-a766-ab66dfcc4357",
+      "name": "Has Open Complaint?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -784,
+        -64
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "8107cb3f-8fe3-436e-8ead-c4f6f64e6c6c",
+      "name": "Stop - Support Handling First",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "productId": "={{ $('Order Completed Trigger').item.json.line_items[0].product_id }}"
+      },
+      "id": "2c105c09-b322-4fe4-ad75-71fb3cfef56b",
+      "name": "Get Product Category",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const order = $('Order Completed Trigger').item.json;\nconst product = $input.first().json;\nconst cats = (product.categories || []).map(c => (c.name || '').toLowerCase()).join(' ');\nlet delayDays = 5; // default: physical products 3-7 days\nlet categoryType = 'physical';\nif (/beauty|cosmetic|food|consumable|skincare|supplement/.test(cats)) { delayDays = 2; categoryType = 'beauty_food_consumable'; }\nelse if (/electronic|gadget|tech|appliance/.test(cats)) { delayDays = 10; categoryType = 'electronics'; }\nreturn [{ json: {\n  delayDays, categoryType,\n  orderId: order.id,\n  customerName: order.billing.first_name + ' ' + order.billing.last_name,\n  customerEmail: order.billing.email,\n  lineItems: (order.line_items || []).map(i => i.name).join(', ')\n} }];"
+      },
+      "id": "bc93d137-3c33-4cd6-9d11-9e22b8c62e7f",
+      "name": "Determine Delay & Category",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "reviewLink",
+              "type": "string",
+              "value": "https://search.google.com/local/writereview?placeid=YOUR_GOOGLE_PLACE_ID"
+            },
+            {
+              "id": "a2",
+              "name": "emailBody",
+              "type": "string",
+              "value": "={{ $json.message.content + '\\n\\nLeave a review here: ' + 'https://search.google.com/local/writereview?placeid=YOUR_GOOGLE_PLACE_ID' }}"
+            },
+            {
+              "id": "a3",
+              "name": "customerEmail",
+              "type": "string",
+              "value": "={{ $('Determine Delay & Category').item.json.customerEmail }}"
+            },
+            {
+              "id": "a4",
+              "name": "customerName",
+              "type": "string",
+              "value": "={{ $('Determine Delay & Category').item.json.customerName }}"
+            },
+            {
+              "id": "a5",
+              "name": "orderId",
+              "type": "string",
+              "value": "={{ $('Determine Delay & Category').item.json.orderId }}"
+            },
+            {
+              "id": "a6",
+              "name": "delayDays",
+              "type": "number",
+              "value": "={{ $('Determine Delay & Category').item.json.delayDays }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "69c7d1d5-07ef-4ed5-8208-8f221a8e76ad",
+      "name": "Build Review Link & Email Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.delayDays }}",
+        "unit": "days"
+      },
+      "id": "dc7a31db-baa2-4638-97d2-d3fc3c134016",
+      "name": "Wait Before Sending (Dynamic Delay)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        128
+      ],
+      "webhookId": "a2a3f2c4-fc8e-4034-a9cb-56e5a7b9d9b0"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.customerEmail }}",
+        "subject": "={{ 'We would love your feedback, ' + $json.customerName + '!' }}",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "id": "a9b09068-c613-473f-877a-03fdd4802257",
+      "name": "Send Review Request Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        736,
+        128
+      ],
+      "webhookId": "d4ecfc42-ac02-4021-952c-ca9d7524eea0"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "PendingReviews",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $json.orderId }}",
+            "customer_name": "={{ $json.customerName }}",
+            "customer_email": "={{ $json.customerEmail }}",
+            "email_sent_date": "={{ $now.toISO() }}",
+            "reviewed": "false",
+            "coupon_code": ""
+          }
+        },
+        "options": {}
+      },
+      "id": "21557e05-2616-48ed-b823-c8378fb3602b",
+      "name": "Log Pending Review",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        976,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "2ac5bb22-f354-485a-a09d-4d3409eeb265",
+      "name": "Poll Google Reviews (Every 6h)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2208,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "accountId",
+              "type": "string",
+              "value": "YOUR_GOOGLE_BUSINESS_ACCOUNT_ID"
+            },
+            {
+              "id": "b2",
+              "name": "locationId",
+              "type": "string",
+              "value": "YOUR_GOOGLE_BUSINESS_LOCATION_ID"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a11a0f93-5882-4634-828b-9e45fec6b069",
+      "name": "Set Google Business Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1968,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://mybusiness.googleapis.com/v4/accounts/' + $json.accountId + '/locations/' + $json.locationId + '/reviews' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "options": {}
+      },
+      "id": "1ccc54a5-cee8-401e-81c1-a1875942ee47",
+      "name": "Fetch Google Business Reviews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1712,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "PendingReviews",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "reviewed",
+              "lookupValue": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2d91ca56-561f-4edb-afcc-4b5160097b21",
+      "name": "Get Pending Reviews",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1472,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const reviewsResp = $('Fetch Google Business Reviews').first().json;\nconst reviews = reviewsResp.reviews || [];\nconst pending = $('Get Pending Reviews').all().map(i => i.json);\nfunction normalize(s){ return (s||'').toLowerCase().replace(/[^a-z ]/g,'').trim(); }\nfunction similar(a,b){ a=normalize(a); b=normalize(b); if(!a||!b) return 0; if(a===b) return 1; const aw=a.split(' '); const bw=b.split(' '); let hits=0; aw.forEach(w=>{ if(bw.includes(w) && w.length>1) hits++; }); return hits / Math.max(aw.length,bw.length); }\nconst matches = [];\nfor (const r of reviews) {\n  for (const p of pending) {\n    const score = similar(r.reviewer ? r.reviewer.displayName : '', p.customer_name);\n    const reviewTime = new Date(r.createTime);\n    const sentTime = new Date(p.email_sent_date);\n    if (score >= 0.6 && reviewTime > sentTime) {\n      matches.push({ json: { score, reviewerName: r.reviewer ? r.reviewer.displayName : '', orderId: p.order_id, customerName: p.customer_name, customerEmail: p.customer_email } });\n    }\n  }\n}\nreturn matches.length ? matches : [{ json: { score: 0 } }];"
+      },
+      "id": "e33a85a8-97bc-4c27-91bf-7723ac935e04",
+      "name": "Fuzzy Match Reviewer To Customer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1216,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c3",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": 0.6,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0e0754ab-1d40-429d-856e-567fba2916f1",
+      "name": "Match Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -960,
+        1072
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "8c289be8-e6a3-4dd7-86ce-499027f94495",
+      "name": "No Match This Cycle",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "coupon"
+      },
+      "id": "b9220a0a-0922-460c-aaab-3f35ee961a3c",
+      "name": "Create Thank You Coupon",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Fuzzy Match Reviewer To Customer').item.json.customerEmail }}",
+        "subject": "Thank you for your review! Here's a coupon",
+        "message": "={{ 'Hi ' + $('Fuzzy Match Reviewer To Customer').item.json.customerName + ', thank you for leaving us a review! Use code ' + $json.code + ' for 10% off your next order.' }}",
+        "options": {}
+      },
+      "id": "a758381a-2d50-4d5d-a345-211d35155848",
+      "name": "Send Thank You Email With Coupon",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -464,
+        864
+      ],
+      "webhookId": "f252dd0b-c4ed-4a98-90ab-d28cc43be9e0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2uBe6lMGoZ7KH0vM",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "PendingReviews",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "order_id"
+          ],
+          "value": {
+            "order_id": "={{ $('Fuzzy Match Reviewer To Customer').item.json.orderId }}",
+            "reviewed": "true",
+            "coupon_code": "={{ $('Create Thank You Coupon').item.json.code }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "645e412d-b15d-4492-bf10-cc3eb5e4d4c3",
+      "name": "Mark Review Fulfilled",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -208,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Automated Post-Purchase Google Review Request With Support Check",
+        "height": 112,
+        "width": 1208,
+        "color": 4
+      },
+      "id": "cfb5dc25-4e21-4a97-a749-6a2a95a00b81",
+      "name": "Note: Automated Post-Purchase Google Review Request With Support Check",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1968,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen order.updated fires, this workflow sends a delayed Google review request only if the order is completed and no complaint is open:\n\n1. Filter for status equals completed\n2. Look up the customer in Gorgias by billing email\n3. Check for any open tickets\n4. Skip sending if a complaint exists\n5. Get product category from WooCommerce\n6. Set dynamic wait days by category\n7. Generate email body with AI\n8. Build review link and email data\n9. Wait the calculated days\n10. Send Gmail review request\n11. Log pending review to Google Sheets",
+        "height": 408,
+        "width": 476,
+        "color": 3
+      },
+      "id": "cc46a6ac-a5d5-4ae9-b1d4-ae18b79f7c1c",
+      "name": "Note: Overview1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2832,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Order Completed Trigger\nEvent order.updated — Listens for WooCommerce order updates via webhook\n\n2. Is Order Completed?\nIF status equals completed — Continue to Gorgias if true, else go to Ignore\n\n3. Ignore - Not Completed\nType noOp — Ends workflow for orders not completed\n\n4. Gorgias Get Customer\nQueries Gorgias for customer using billing email\n\n5. Extract Gorgias Customer ID\nCode extracts first customer ID from response or null\n\n6. Gorgias List Open Tickets\nLists open tickets for that customer\n\n7. Check Has Complaint\nCode sets hasComplaint true if any tickets exist\n\n8. Has Open Complaint?\nIF hasComplaint true — Stop workflow if true, else continue\n\n9. Stop - Support Handling First\nType noOp — Ends to prioritize support\n\n10. Get Product Category\nFetches WooCommerce product data for first line item\n\n11. Determine Delay and Category\nCode sets delay 2 days for beauty food consumable, 10 days for electronics, 5 days default\n\n12. AI Generate Review Email\nModel gpt-4o-mini — Generates warm plain text email\n\n13. Build Review Link and Email Data\nPrepares review link, email body, and customer data\n\n14. Wait Before Sending Dynamic Delay\nWaits the calculated days based on category\n\n15. Send Review Request Email\nSends Gmail to customer with subject and review link\n\n16. Log Pending Review\nAppends order data to Google Sheets sheet PendingReviews",
+        "height": 756,
+        "width": 680,
+        "color": 2
+      },
+      "id": "4de9af8d-1dec-4c9d-b2a7-7a32b5434f94",
+      "name": "Note: Node-by-node Purpose",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Auto-Reward Google Reviewers With Coupons",
+        "height": 80,
+        "width": 824,
+        "color": 4
+      },
+      "id": "baacaf08-b2ea-47d8-88f0-7e1ac5411399",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1776,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen the schedule fires every 6 hours, this workflow polls Google reviews and rewards matched customers with coupons:\n\n1. Fetch Google Business reviews via API\n2. Load pending customers from Google Sheets\n3. Fuzzy-match reviewers to customers by name\n4. Create a WooCommerce coupon and email it\n5. Mark the customer as fulfilled in the sheet",
+        "height": 280,
+        "width": 396,
+        "color": 3
+      },
+      "id": "00156307-833d-4388-9e90-c5177ed2cd86",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2704,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Poll Google Reviews (Every 6h)\nTriggers automatically every 6 hours.\n\n2. Set Google Business Config\nStores the account ID and location ID for the API call.\n\n3. Fetch Google Business Reviews\nCalls Google My Business API to get all reviews.\n\n4. Get Pending Reviews\nReads rows from the PendingReviews sheet where reviewed is false.\n\n5. Fuzzy Match Reviewer To Customer\nCompares reviewer names to customer names using fuzzy logic and checks if the review was posted after the email date.\n\n6. Match Found?\nIf the similarity score is 0.6 or higher, proceed to reward. If not, skip this cycle.\n\n7. No Match This Cycle\nEnds the path when no match is found.\n\n8. Create Thank You Coupon\nCreates a new WooCommerce coupon code.\n\n9. Send Thank You Email With Coupon\nEmails the customer a personalized thank-you message with their coupon code.\n\n10. Mark Review Fulfilled\nUpdates the sheet to set reviewed to true and saves the coupon code.",
+        "height": 596,
+        "width": 472,
+        "color": 2
+      },
+      "id": "e2dfff1f-0a58-43ec-9af7-e148e3ffcd2c",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        48,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=={{ \n'Customer name: ' + $json.customerName + \n'. Items ordered: ' + $json.lineItems + \n'. Category type: ' + $json.categoryType + \n'. Days since delivery: ' + $json.delayDays + \n'. Write only the email body asking for a Google review. Mention the products by name, make it feel personal to the category, and keep it under 110 words. Do not include any link, signature, or subject.'\n}}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a warm, genuine customer-care copywriter for an online store.\n\nWrite ONLY the body of a review-request email. \nRules:\n- Plain text only, no markdown, no emojis, no subject line, no signature, no link\n- 85-110 words max, 2-3 short paragraphs\n- Friendly, human, grateful tone — use \"we\" not \"I\"\n- Always mention the exact product names the customer ordered\n- Adapt your opening based on category:\n  • beauty_food_consumable = they've had a couple days to try it\n  • electronics = they've had time to set it up and use it\n  • physical = they've had time to receive and try it\n- End with a soft, natural ask to share their experience on Google. Do NOT write the link."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -64,
+        128
+      ],
+      "id": "6b26017d-d1c6-42d9-9d50-3a5f54c53528",
+      "name": "AI Generate Review Email"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        336
+      ],
+      "id": "f967ac37-fef7-4ff8-bd83-88094e91c7a8",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "2zNEj6hbJz23V27t",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -48,
+        336
+      ],
+      "id": "985d5c73-34bc-4b12-9bc0-99641caff3cc",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"email_body\": {\n      \"type\": \"string\",\n      \"description\": \"Plain text email body only, 85-110 words, warm and genuine, mentions exact product names, no link, no signature, no markdown\"\n    },\n    \"products_mentioned\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" },\n      \"description\": \"List of exact product names from lineItems that were mentioned\"\n    },\n    \"category_type\": {\n      \"type\": \"string\",\n      \"enum\": [\"beauty_food_consumable\", \"electronics\", \"physical\"],\n      \"description\": \"Echo back the input category\"\n    }\n  },\n  \"required\": [\"email_body\", \"products_mentioned\", \"category_type\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        336
+      ],
+      "id": "752196df-cbc4-438b-9382-0f6625d0aa35",
+      "name": "Structured Output Parser"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Order Completed Trigger": {
+      "main": [
+        [
+          {
+            "node": "Is Order Completed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Order Completed?": {
+      "main": [
+        [
+          {
+            "node": "Gorgias Get Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignore - Not Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gorgias Get Customer": {
+      "main": [
+        [
+          {
+            "node": "Extract Gorgias Customer ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Gorgias Customer ID": {
+      "main": [
+        [
+          {
+            "node": "Gorgias List Open Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gorgias List Open Tickets": {
+      "main": [
+        [
+          {
+            "node": "Check Has Complaint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Has Complaint": {
+      "main": [
+        [
+          {
+            "node": "Has Open Complaint?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Open Complaint?": {
+      "main": [
+        [
+          {
+            "node": "Stop - Support Handling First",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Product Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Product Category": {
+      "main": [
+        [
+          {
+            "node": "Determine Delay & Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Delay & Category": {
+      "main": [
+        [
+          {
+            "node": "AI Generate Review Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Review Link & Email Data": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Sending (Dynamic Delay)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Sending (Dynamic Delay)": {
+      "main": [
+        [
+          {
+            "node": "Send Review Request Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Review Request Email": {
+      "main": [
+        [
+          {
+            "node": "Log Pending Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Google Reviews (Every 6h)": {
+      "main": [
+        [
+          {
+            "node": "Set Google Business Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Google Business Config": {
+      "main": [
+        [
+          {
+            "node": "Fetch Google Business Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Google Business Reviews": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Reviews": {
+      "main": [
+        [
+          {
+            "node": "Fuzzy Match Reviewer To Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fuzzy Match Reviewer To Customer": {
+      "main": [
+        [
+          {
+            "node": "Match Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Found?": {
+      "main": [
+        [
+          {
+            "node": "Create Thank You Coupon",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Match This Cycle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Thank You Coupon": {
+      "main": [
+        [
+          {
+            "node": "Send Thank You Email With Coupon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Thank You Email With Coupon": {
+      "main": [
+        [
+          {
+            "node": "Mark Review Fulfilled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Generate Review Email": {
+      "main": [
+        [
+          {
+            "node": "Build Review Link & Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Generate Review Email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Generate Review Email",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Generate Review Email",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "120e6756-f106-4cdd-b2e0-55d446c8749a",
+  "meta": {
+    "instanceId": "e1f53822c1dd3bfd16c73e148fe6df093b0e5e171f5879fb4fc94007ad73a3e2"
+  },
+  "id": "ydSOwmxK9N07Twvf",
+  "tags": []
+}
