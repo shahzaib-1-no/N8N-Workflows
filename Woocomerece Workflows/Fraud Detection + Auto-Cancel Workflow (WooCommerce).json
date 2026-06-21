@@ -1,0 +1,552 @@
+{
+  "name": "Fraud Detection + Auto-Cancel Workflow (WooCommerce)",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "order.created"
+      },
+      "id": "1d6c8d35-c9ea-4c0a-ae4c-5dbc530a3229",
+      "name": "WooCommerce - New Order",
+      "type": "n8n-nodes-base.wooCommerceTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        128
+      ],
+      "webhookId": "fraud-detection-wc-001"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "order_id",
+              "value": "={{ $json.body.id }}",
+              "type": "number"
+            },
+            {
+              "id": "a2",
+              "name": "customer_ip",
+              "value": "={{ $json.body.customer_ip_address }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "billing_email",
+              "value": "={{ $json.body.billing.email }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "transaction_id",
+              "value": "={{ $json.body.transaction_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "order_total",
+              "value": "={{ $json.body.total }}",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "billing_first_name",
+              "value": "={{ $json.body.billing.first_name }}",
+              "type": "string"
+            },
+            {
+              "id": "a7",
+              "name": "billing_last_name",
+              "value": "={{ $json.body.billing.last_name }}",
+              "type": "string"
+            },
+            {
+              "id": "a8",
+              "name": "billing_address",
+              "value": "={{ $json.body.billing.address_1 }}",
+              "type": "string"
+            },
+            {
+              "id": "a9",
+              "name": "billing_city",
+              "value": "={{ $json.body.billing.city }}",
+              "type": "string"
+            },
+            {
+              "id": "a10",
+              "name": "billing_state",
+              "value": "={{ $json.body.billing.state }}",
+              "type": "string"
+            },
+            {
+              "id": "a11",
+              "name": "billing_country",
+              "value": "={{ $json.body.billing.country }}",
+              "type": "string"
+            },
+            {
+              "id": "a12",
+              "name": "billing_postcode",
+              "value": "={{ $json.body.billing.postcode }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "42ca0833-c478-479d-946a-3c0314ed7a33",
+      "name": "Set - Extract Order Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -864,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://minfraud.maxmind.com/minfraud/v2.0/score",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.maxmind.com-minfraud-score+json; charset=UTF-8; version=2.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ device: { ip_address: $json.customer_ip }, event: { transaction_id: String($json.order_id), type: 'purchase' }, email: { address: $json.billing_email }, billing: { first_name: $json.billing_first_name, last_name: $json.billing_last_name, address: $json.billing_address, city: $json.billing_city, region: $json.billing_state, country: $json.billing_country, postal: $json.billing_postcode } }) }}",
+        "options": {}
+      },
+      "id": "4964b0e2-bc60-42a2-bd69-01600e841a88",
+      "name": "HTTP - MinFraud Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        128
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8c3f9ce0-ff98-4121-8e36-53a4107a1b56",
+      "name": "IF - API Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -272,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "fraud-alerts",
+          "mode": "name"
+        },
+        "text": "=⚠️ MinFraud API Error on Order #{{ $('Set - Extract Order Fields').first().json.order_id }}\nError: {{ $json.error }}\nExecution ID: {{ $execution.id }}\nAction Required: MANUAL FRAUD REVIEW NEEDED",
+        "otherOptions": {}
+      },
+      "id": "e919a4d5-c2d5-4e22-8886-a2dd7937e982",
+      "name": "Slack - Error Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        -16,
+        -80
+      ],
+      "webhookId": "c80e1a9e-0ce0-4e0a-bfd7-a6d78a0f2718"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json.risk_score }}",
+                    "rightValue": 75,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HIGH"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "leftValue": "={{ $json.risk_score }}",
+                    "rightValue": 40,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "MEDIUM"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "efc85f5f-f58f-4b45-b7f3-d06e25818215",
+      "name": "Switch - Risk Level",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -16,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "order",
+        "operation": "update",
+        "orderId": "={{ $('Set - Extract Order Fields').first().json.order_id }}",
+        "updateFields": {
+          "status": "cancelled"
+        },
+        "billingUi": {},
+        "couponLinesUi": {},
+        "feeLinesUi": {},
+        "lineItemsUi": {},
+        "metadataUi": {},
+        "shippingUi": {},
+        "shippingLinesUi": {}
+      },
+      "id": "205f6ec4-e4f8-49a1-bec5-821a1d66fcc9",
+      "name": "WooCommerce - Cancel Order",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "refund"
+      },
+      "id": "f6f1e5f8-80b6-4dad-850b-d07c23524ccf",
+      "name": "Stripe - Create Refund",
+      "type": "n8n-nodes-base.stripe",
+      "typeVersion": 1,
+      "position": [
+        496,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "fraud-alerts",
+          "mode": "name"
+        },
+        "text": "=🚨 HIGH RISK ORDER AUTO-CANCELLED\nOrder #{{ $('Set - Extract Order Fields').first().json.order_id }} | MinFraud Score: {{ $('HTTP - MinFraud Score').first().json.risk_score }}\nCustomer: {{ $('Set - Extract Order Fields').first().json.billing_email }}\nIP: {{ $('Set - Extract Order Fields').first().json.customer_ip }}\nTotal: ${{ $('Set - Extract Order Fields').first().json.order_total }}\nStripe Refund ID: {{ $json.id }}",
+        "otherOptions": {}
+      },
+      "id": "8927b80e-eb09-453e-bf02-9cccce12ba60",
+      "name": "Slack - High Risk Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        736,
+        -80
+      ],
+      "webhookId": "3879252f-a1c4-41cd-8368-8b0eeb593ea6"
+    },
+    {
+      "parameters": {
+        "resource": "order",
+        "operation": "update",
+        "orderId": "={{ $('Set - Extract Order Fields').first().json.order_id }}",
+        "updateFields": {
+          "status": "on-hold"
+        },
+        "billingUi": {},
+        "couponLinesUi": {},
+        "feeLinesUi": {},
+        "lineItemsUi": {},
+        "metadataUi": {},
+        "shippingUi": {},
+        "shippingLinesUi": {}
+      },
+      "id": "81673245-081e-4f29-9dd2-a442759378d9",
+      "name": "WooCommerce - Hold Order",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        240,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "fraud-alerts",
+          "mode": "name"
+        },
+        "text": "=⚠️ MEDIUM RISK - MANUAL REVIEW REQUIRED\nOrder #{{ $('Set - Extract Order Fields').first().json.order_id }} placed ON HOLD | MinFraud Score: {{ $('HTTP - MinFraud Score').first().json.risk_score }}\nCustomer: {{ $('Set - Extract Order Fields').first().json.billing_email }}\nIP: {{ $('Set - Extract Order Fields').first().json.customer_ip }}\nTotal: ${{ $('Set - Extract Order Fields').first().json.order_total }}\nReview in WooCommerce Admin → Orders",
+        "otherOptions": {}
+      },
+      "id": "1e90a83b-5891-4ba6-8871-ffc829139874",
+      "name": "Slack - Medium Risk Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        496,
+        128
+      ],
+      "webhookId": "4416a1bc-95e6-4027-8c92-91ea22872894"
+    },
+    {
+      "parameters": {},
+      "id": "b6ae3a41-83ab-4352-b7d0-a527ac79c8fc",
+      "name": "No Op - Low Risk",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        240,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Automated WooCommerce Fraud Detection with MinFraud",
+        "height": 80,
+        "width": 984,
+        "color": 4
+      },
+      "id": "6a85217c-2272-4799-9542-75af966cc4d6",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen new WooCommerce order is created, this workflow scores fraud risk with MinFraud:\n\n1. Extract order fields\n2. Call MinFraud API\n3. Alert Slack if API fails\n4. Route by risk score\n5. Cancel and refund high risk\n6. Hold medium risk for review\n7. Ignore low risk",
+        "height": 280,
+        "width": 332,
+        "color": 3
+      },
+      "id": "8ea0b942-17e0-4796-a8ff-a4fb0efc2340",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1584,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. WooCommerce - New Order\nTriggers on order.created\n\n2. Set - Extract Order Fields\nPulls ID, IP, email, total, billing details\n\n3. HTTP - MinFraud Score\nPosts data to MaxMind for risk score\n\n4. IF - API Error?\nChecks if error returned\n\n5. Slack - Error Alert\nSends error to fraud-alerts channel\n\n6. Switch - Risk Level\nSends score 75 plus to HIGH, 40 plus to MEDIUM, else LOW\n\n7. WooCommerce - Cancel Order\nCancels order for HIGH risk\n\n8. Stripe - Create Refund\nRefunds payment for cancelled order\n\n9. Slack - High Risk Alert\nNotifies team of auto-cancel and refund\n\n10. WooCommerce - Hold Order\nSets order on-hold for MEDIUM risk\n\n11. Slack - Medium Risk Alert\nNotifies team for manual review\n\n12. No Op - Low Risk\nEnds workflow with no action",
+        "height": 580,
+        "width": 472,
+        "color": 2
+      },
+      "id": "e44c55e6-1f4f-4ccd-9251-ef1a64050811",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        944,
+        -96
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WooCommerce - New Order": {
+      "main": [
+        [
+          {
+            "node": "Set - Extract Order Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Extract Order Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP - MinFraud Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - MinFraud Score": {
+      "main": [
+        [
+          {
+            "node": "IF - API Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - API Error?": {
+      "main": [
+        [
+          {
+            "node": "Slack - Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch - Risk Level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Risk Level": {
+      "main": [
+        [
+          {
+            "node": "WooCommerce - Cancel Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WooCommerce - Hold Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Op - Low Risk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WooCommerce - Cancel Order": {
+      "main": [
+        [
+          {
+            "node": "Stripe - Create Refund",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stripe - Create Refund": {
+      "main": [
+        [
+          {
+            "node": "Slack - High Risk Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WooCommerce - Hold Order": {
+      "main": [
+        [
+          {
+            "node": "Slack - Medium Risk Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c5769ffe-a9b2-4445-8520-c1fdc1b9e200",
+  "meta": {
+    "instanceId": "e1f53822c1dd3bfd16c73e148fe6df093b0e5e171f5879fb4fc94007ad73a3e2"
+  },
+  "id": "b262mxRyw14X9hsH",
+  "tags": []
+}
