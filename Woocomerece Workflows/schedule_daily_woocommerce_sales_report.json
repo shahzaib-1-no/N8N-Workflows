@@ -1,0 +1,366 @@
+{
+  "name": "schedule_daily_woocommerce_sales_report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "2a032ced-425e-4393-8f4c-c93a01d5f943",
+      "name": "Schedule: 9AM Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -816,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9c8b5b1d-7d5d-43b3-a5b2-3bdbcc884bc0",
+      "name": "IF: WooCommerce Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -320,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// WHY runOnceForAllItems: WooCommerce returns N order items.\n// We need ONE aggregated report object, not N separate outputs.\n// If this ran per-item, we'd get N identical rows in Google Sheets.\n\nconst orders = $input.all();\n\n// --- Accumulators ---\nlet totalSales = 0;\nconst productMap = {};  // { 'Product Name': totalQty }\nconst statusBreakdown = {};  // { 'completed': 3, 'processing': 1 }\n\n// --- Loop through all WooCommerce order objects ---\nfor (const item of orders) {\n  const order = item.json;\n\n  // WooCommerce returns total as a STRING like \"89.99\" — parseFloat required\n  totalSales += parseFloat(order.total || 0);\n\n  // Group orders by status (completed, processing, cancelled, on-hold, etc.)\n  const status = order.status || 'unknown';\n  statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;\n\n  // Sum product quantities across all line items in this order\n  // order.line_items is an array of { name, quantity, ... }\n  for (const lineItem of (order.line_items || [])) {\n    const name = lineItem.name || 'Unknown Product';\n    productMap[name] = (productMap[name] || 0) + parseInt(lineItem.quantity || 1);\n  }\n}\n\n// --- Top 5 products by units sold, descending ---\nconst topProducts = Object.entries(productMap)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 5)\n  .map(([name, qty]) => `${name} (${qty})`)\n  .join(', ');\n\n// --- Human-readable status breakdown ---\nconst statusText = Object.entries(statusBreakdown)\n  .map(([k, v]) => `${k}: ${v}`)\n  .join(' | ');\n\n// --- Report date = yesterday (the day whose orders we just fetched) ---\nconst today = new Date();\nconst yesterday = new Date(today);\nyesterday.setDate(yesterday.getDate() - 1);\nconst reportDate = yesterday.toISOString().split('T')[0]; // format: YYYY-MM-DD\n\n// --- Final output: single item with all metrics ---\nreturn [{\n  json: {\n    report_date: reportDate,\n    total_sales: parseFloat(totalSales.toFixed(2)),\n    order_count: orders.length,\n    top_products: topProducts || 'No orders today',\n    status_breakdown: statusText || 'No orders today',\n    currency: orders[0]?.json?.currency || 'USD'\n  }\n}];"
+      },
+      "id": "7d4e14f2-9a24-4d7d-ae24-299482b8e6d5",
+      "name": "Process Sales Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID_HERE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $json.report_date }}",
+            "Total Sales": "={{ $json.total_sales }}",
+            "Order Count": "={{ $json.order_count }}",
+            "Top Products": "={{ $json.top_products }}",
+            "Status Breakdown": "={{ $json.status_breakdown }}",
+            "Currency": "={{ $json.currency }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "2c2a6dfe-5e1f-4d2d-a138-aded033b6a49",
+      "name": "Update Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        240,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// WHY: We build TWO formats from the same data object:\n//   1. summaryText → plain text for WhatsApp (no HTML rendering)\n//   2. summaryHtml → styled HTML table for email\n// If skipped: Email node would show raw JSON, WhatsApp would break.\n\nconst d = $json;\n\n// Plain text (WhatsApp-safe, uses *bold* markdown supported by WA)\nconst summaryText = [\n  `📊 *Daily Sales Report — ${d.report_date}*`,\n  `💰 Revenue: ${d.currency} ${d.total_sales}`,\n  `📦 Total Orders: ${d.order_count}`,\n  `🏆 Top Products: ${d.top_products}`,\n  `📋 Order Status: ${d.status_breakdown}`\n].join('\\n');\n\n// HTML table for email — styled but lightweight\nconst summaryHtml = `\n<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:0 auto\">\n  <h2 style=\"color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px\">\n    📊 Daily Sales Report — ${d.report_date}\n  </h2>\n  <table style=\"border-collapse:collapse;width:100%;margin-top:16px;font-size:14px\">\n    <thead>\n      <tr style=\"background:#3498db;color:#fff\">\n        <th style=\"padding:10px 14px;text-align:left;border:1px solid #2980b9\">Metric</th>\n        <th style=\"padding:10px 14px;text-align:left;border:1px solid #2980b9\">Value</th>\n      </tr>\n    </thead>\n    <tbody>\n      <tr style=\"background:#f8f9fa\">\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6\">📅 Date</td>\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6\">${d.report_date}</td>\n      </tr>\n      <tr>\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6\">💰 Total Revenue</td>\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6;font-weight:bold;color:#27ae60\">${d.currency} ${d.total_sales}</td>\n      </tr>\n      <tr style=\"background:#f8f9fa\">\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6\">📦 Total Orders</td>\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6\">${d.order_count}</td>\n      </tr>\n      <tr>\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6\">🏆 Top Products</td>\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6\">${d.top_products}</td>\n      </tr>\n      <tr style=\"background:#f8f9fa\">\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6\">📋 Order Status</td>\n        <td style=\"padding:9px 14px;border:1px solid #dee2e6\">${d.status_breakdown}</td>\n      </tr>\n    </tbody>\n  </table>\n  <p style=\"margin-top:16px;color:#95a5a6;font-size:11px\">\n    Generated automatically by n8n at ${new Date().toISOString()}\n  </p>\n</div>`;\n\nreturn {\n  json: {\n    ...d,\n    summary_text: summaryText,\n    summary_html: summaryHtml\n  }\n};"
+      },
+      "id": "1745fc9c-12e0-4aa4-aef2-5e88124dd2b2",
+      "name": "Generate Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "team@yourstore.com",
+        "subject": "=📊 Daily Sales Report — {{ $json.report_date }}",
+        "message": "={{ $json.summary_html }}",
+        "options": {}
+      },
+      "id": "015a78ba-8dec-4ede-ab8e-23b572b1c561",
+      "name": "Send Report Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        736,
+        352
+      ],
+      "webhookId": "a3d1eb2e-d9f4-40a5-9697-9f3f4c6f83d0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2uBe6lMGoZ7KH0vM",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "team@yourstore.com",
+        "subject": "=⚠️ Sales Report FAILED — {{ $now.toFormat('yyyy-MM-dd') }}",
+        "emailType": "text",
+        "message": "=Daily sales report automation FAILED.\n\nError: {{ $json.error }}\nExecution ID: {{ $execution.id }}\nTimestamp: {{ $now.toISO() }}\n\nCheck the n8n execution logs for details.",
+        "options": {}
+      },
+      "id": "295fe99b-a494-4fea-9ca9-659b8ee4f2eb",
+      "name": "Error Notification Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -16,
+        160
+      ],
+      "webhookId": "8d115038-be30-4539-9440-5b491031edaa",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2uBe6lMGoZ7KH0vM",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "order",
+        "operation": "get"
+      },
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        -544,
+        336
+      ],
+      "id": "78660b85-9132-4604-b375-1198a152912a",
+      "name": "Get an order"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        944,
+        352
+      ],
+      "id": "838cf9d0-4dd8-4116-8d06-1f5826ab6ec3",
+      "name": "Send message",
+      "webhookId": "9b53de73-f438-4f07-aec4-5ce69605aa0e"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        352
+      ],
+      "id": "d897f2fb-4cdc-4816-83f8-b578314ba9d5",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "content": "# Daily WooCommerce Sales Report Automation",
+        "height": 80,
+        "width": 808,
+        "color": 4
+      },
+      "id": "8a310d75-6111-4b28-8af5-ae03c5a4f79a",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen 9 AM daily schedule triggers, this workflow fetches WooCommerce orders and sends sales report:\n\n1. Fetch orders from WooCommerce\n2. Check for errors\n3. Aggregate sales, orders, top products\n4. Append to Google Sheets\n5. Generate text and HTML summaries\n6. Email report to team\n7. Send WhatsApp notification",
+        "height": 312,
+        "width": 380,
+        "color": 3
+      },
+      "id": "ef84ca7a-bd71-41e3-8ee5-b5bf19d869fd",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1296,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Schedule: 9AM Daily\nStarts workflow at 9 AM every day\n\n2. Get an order\nFetches orders from WooCommerce\n\n3. IF: WooCommerce Error?\nRoutes to error email if error exists, else continues\n\n4. Process Sales Data\nAggregates totals, counts, top 5 products, status breakdown for yesterday\n\n5. Update Google Sheet\nAppends report row to Sheet1\n\n6. Generate Summary\nCreates plain text for WhatsApp and HTML table for email\n\n7. Send Report Email\nEmails HTML report to team\n\n8. Send message\nSends WhatsApp notification\n\n9. No Operation, do nothing\nEnds successful flow\n\n10. Error Notification Email\nSends failure alert with error details",
+        "height": 532,
+        "width": 424,
+        "color": 2
+      },
+      "id": "7f485389-2ff2-4ff5-bd15-17058c3b0e8c",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        64
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "IF: WooCommerce Error?": {
+      "main": [
+        [
+          {
+            "node": "Error Notification Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Sales Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Sales Data": {
+      "main": [
+        [
+          {
+            "node": "Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "Generate Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Report Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule: 9AM Daily": {
+      "main": [
+        [
+          {
+            "node": "Get an order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get an order": {
+      "main": [
+        [
+          {
+            "node": "IF: WooCommerce Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Report Email": {
+      "main": [
+        [
+          {
+            "node": "Send message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "943c048c-8962-4c32-9e66-89ac2dcd6cbf",
+  "meta": {
+    "instanceId": "e1f53822c1dd3bfd16c73e148fe6df093b0e5e171f5879fb4fc94007ad73a3e2"
+  },
+  "id": "cDQhnnYNTywwhIIP",
+  "tags": []
+}
