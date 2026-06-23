@@ -1,0 +1,734 @@
+{
+  "name": "AI Customer Support Agent (WooCommerce)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "34d7a14f-f196-4ec1-9a08-e34415abc1e1",
+      "name": "Customer Message In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        224
+      ],
+      "webhookId": "ae91cc5b-b0dd-4c72-8b00-987317293450"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "channel",
+              "type": "string",
+              "value": "={{ $json.body.channel || 'webchat' }}"
+            },
+            {
+              "id": "a2",
+              "name": "sessionId",
+              "type": "string",
+              "value": "={{ $json.body.sessionId || $json.body.customer?.phone || $json.body.customer?.email || $execution.id }}"
+            },
+            {
+              "id": "a3",
+              "name": "message",
+              "type": "string",
+              "value": "={{ $json.body.message }}"
+            },
+            {
+              "id": "a4",
+              "name": "customerEmail",
+              "type": "string",
+              "value": "={{ $json.body.customer?.email || '' }}"
+            },
+            {
+              "id": "a5",
+              "name": "customerPhone",
+              "type": "string",
+              "value": "={{ $json.body.customer?.phone || '' }}"
+            },
+            {
+              "id": "a6",
+              "name": "orderNumberRaw",
+              "type": "string",
+              "value": "={{ $json.body.orderNumber || '' }}"
+            },
+            {
+              "id": "a7",
+              "name": "storeId",
+              "type": "string",
+              "value": "={{ $json.body.store?.id || '' }}"
+            },
+            {
+              "id": "a8",
+              "name": "storeDomain",
+              "type": "string",
+              "value": "={{ $json.body.store?.domain || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eaf890a4-b745-424e-bf3f-897079593770",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -928,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM support_stores WHERE store_id = $1 OR domain = $2 LIMIT 1",
+        "options": {
+          "queryReplacement": "={{ $json.storeId }},={{ $json.storeDomain }}"
+        }
+      },
+      "id": "e4bb6b3f-d60d-45b1-95a3-3a0ca13d45af",
+      "name": "Lookup Store Config",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -672,
+        224
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const store = $('Lookup Store Config').item.json || {};\nconst input = $('Normalize Input').item.json;\n\nif (!store || !store.wc_consumer_key) {\n  return { ...input, storeFound: false };\n}\n\nconst authString = Buffer.from(`${store.wc_consumer_key}:${store.wc_consumer_secret}`).toString('base64');\n\nreturn {\n  ...input,\n  storeFound: true,\n  wcBaseUrl: `${store.wc_base_url}/wp-json/wc/v3`,\n  wcAuthHeader: `Basic ${authString}`,\n  supportTeamEmail: store.support_team_email || '',\n  aiPersona: store.ai_persona || '',\n  waPhoneNumberId: store.wa_phone_number_id || ''\n};"
+      },
+      "id": "8e6689e4-5e18-45cf-a313-962dc559ffb9",
+      "name": "Build Auth Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.storeFound }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "96c0d013-bade-4b4e-8d31-4672242be5be",
+      "name": "Store Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -176,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: \"error\", message: \"Store not recognized. Check store_id/domain sent in the request.\" } }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "id": "25e18005-df3b-4452-970c-cb1516f03b0e",
+      "name": "Store Not Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        80,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are the AI customer support agent for an online WooCommerce store. Persona/tone notes: {{ $json.aiPersona || 'friendly, professional, concise' }}\n\nYour job: help customers with order status, tracking, refunds, and cancellations using ONLY verified WooCommerce data from your tools. Never guess or invent order details.\n\nContext already given by the customer:\n- Email: {{ $json.customerEmail || 'not given' }}\n- Phone: {{ $json.customerPhone || 'not given' }}\n- Order number mentioned: {{ $json.orderNumberRaw || 'not given' }}\n\nRULES:\n1. Verification first: you need an order number OR the customer's email before looking anything up. If both are missing, politely ask for one of them and stop there - do not call any tool yet. Set verified=false.\n2. Use get_order_by_id when you have an order number. Use find_orders_by_email when you only have an email. Never fabricate order data.\n3. After fetching an order, check that its billing.email or billing.phone reasonably matches what the customer told you. If it does not match, do not reveal order details - ask them to double check their order number/email instead. Set verified=false in that case.\n4. Once verified, answer clearly: order status, items, shipping/tracking info (a tracking number, if present, is usually inside the order's meta_data array - look for tracking-related keys), and estimated delivery if available. If tracking info is not present, say it is not available yet rather than inventing one.\n5. Escalate to a human (escalate=true, with a clear escalate_reason) when: the customer explicitly asks for a refund or cancellation, the order status is 'failed' or has been 'on-hold' for more than 2 days, the customer sounds frustrated or angry, or you cannot resolve the request after using your tools.\n6. Tone: write like a helpful human support agent - friendly, clear, concise. No markdown formatting, this goes straight to chat/WhatsApp/email.\n7. Always set intent to one of: order_status, tracking_info, refund_request, cancellation_request, general_support.",
+          "maxIterations": 6
+        }
+      },
+      "id": "adb1832c-7233-4f30-9c0f-292d15806248",
+      "name": "Support Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1120,
+        688
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "2c0f47a1-f141-45b7-9154-a44de748d90d",
+      "name": "GPT Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1248,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"reply\": {\n      \"type\": \"string\",\n      \"description\": \"Customer-facing reply, friendly and clear, no markdown\"\n    },\n    \"intent\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"order_status\",\n        \"tracking_info\",\n        \"refund_request\",\n        \"cancellation_request\",\n        \"general_support\"\n      ]\n    },\n    \"verified\": {\n      \"type\": \"boolean\",\n      \"description\": \"true only if order/customer identity was confirmed against WooCommerce data\"\n    },\n    \"escalate\": {\n      \"type\": \"boolean\"\n    },\n    \"escalate_reason\": {\n      \"type\": \"string\",\n      \"description\": \"empty string if escalate is false\"\n    }\n  },\n  \"required\": [\n    \"reply\",\n    \"intent\",\n    \"verified\",\n    \"escalate\",\n    \"escalate_reason\"\n  ]\n}"
+      },
+      "id": "f82d3d96-e18c-4180-83b5-961d4f2b86ed",
+      "name": "Response Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = $json;\nconst parsed = (raw.output && typeof raw.output === 'object') ? raw.output : raw;\nconst ctx = $('Build Auth Context').item.json;\n\nreturn {\n  channel: ctx.channel,\n  customerEmail: ctx.customerEmail,\n  customerPhone: ctx.customerPhone,\n  supportTeamEmail: ctx.supportTeamEmail,\n  waPhoneNumberId: ctx.waPhoneNumberId,\n  reply: parsed.reply || 'Sorry, I could not process that just now. A human agent will follow up shortly.',\n  intent: parsed.intent || 'general_support',\n  verified: !!parsed.verified,\n  escalate: !!parsed.escalate,\n  escalateReason: parsed.escalate_reason || ''\n};"
+      },
+      "id": "b65be253-1e3d-439a-bab7-f132629f2976",
+      "name": "Parse Agent Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.escalate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "35f85417-6cd0-4fc5-829b-9957b8f05205",
+      "name": "Escalate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -624,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.supportTeamEmail }}",
+        "subject": "=Escalation needed: {{ $json.intent }} ({{ $json.channel }})",
+        "message": "=A conversation needs human follow-up.\\n\\nChannel: {{ $json.channel }}\\nIntent: {{ $json.intent }}\\nReason: {{ $json.escalateReason }}\\nCustomer email: {{ $json.customerEmail }}\\nCustomer phone: {{ $json.customerPhone }}\\n\\nAI draft reply sent to customer:\\n{{ $json.reply }}",
+        "options": {}
+      },
+      "id": "a36ca82f-9a59-48bf-b8da-cc4867e69412",
+      "name": "Notify Human Support",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        608
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "webhookId": "d050a326-ff74-4c0d-9853-f347b6aa4445",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2uBe6lMGoZ7KH0vM",
+          "name": "Gmail account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $('Parse Agent Output').item.json.channel }}",
+                    "rightValue": "webchat",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "leftValue": "={{ $('Parse Agent Output').item.json.channel }}",
+                    "rightValue": "whatsapp",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r3",
+                    "leftValue": "={{ $('Parse Agent Output').item.json.channel }}",
+                    "rightValue": "email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "webchat"
+        }
+      },
+      "id": "cca0f4eb-063d-468d-98f6-4de9f8563cb9",
+      "name": "Channel Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -128,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $('Parse Agent Output').item.json.waPhoneNumberId }}",
+        "recipientPhoneNumber": "={{ $('Parse Agent Output').item.json.customerPhone }}",
+        "textBody": "={{ $('Parse Agent Output').item.json.reply }}",
+        "additionalFields": {}
+      },
+      "id": "c719896c-3410-4435-9bef-bde0ed210ee5",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        704
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "webhookId": "a0f032c8-0349-4de1-ba28-3f94d629345b",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Parse Agent Output').item.json.customerEmail }}",
+        "subject": "Re: Your order inquiry",
+        "message": "={{ $('Parse Agent Output').item.json.reply }}",
+        "options": {}
+      },
+      "id": "ebb4b9b8-a01e-43ce-9758-23b08d41d098",
+      "name": "Send Email Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        144,
+        880
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "webhookId": "a11d6db7-c0b0-4585-b9cb-b948db5c891b",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: \"ok\", channel: $('Parse Agent Output').item.json.channel, reply: $('Parse Agent Output').item.json.reply, escalated: $('Parse Agent Output').item.json.escalate } }}",
+        "options": {}
+      },
+      "id": "af35c67f-cc02-4465-a91c-4adad58f39b1",
+      "name": "Success Ack",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        416,
+        672
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -1120,
+        960
+      ],
+      "id": "e852d2c7-f558-43a7-a0d5-435d6b42b375",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "resource": "order",
+        "operation": "get",
+        "orderId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Order_ID', ``, 'string') }}"
+      },
+      "type": "n8n-nodes-base.wooCommerceTool",
+      "typeVersion": 1,
+      "position": [
+        -960,
+        960
+      ],
+      "id": "b0d439e4-6b50-4e23-8c4f-e48ccce88bd9",
+      "name": "Get an order by ID"
+    },
+    {
+      "parameters": {
+        "content": "# AI WooCommerce Support Chat Router",
+        "height": 80,
+        "width": 680,
+        "color": 4
+      },
+      "id": "fc61b323-814d-48f0-9c03-14cbae457e98",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen POST to /support-chat, this workflow handles support:\n\n1. Normalize input\n2. Lookup store in Postgres\n3. Build WooCommerce auth\n4. Run GPT-4o-mini agent\n5. Parse reply and escalate flag\n6. Notify human via Gmail if needed\n7. Route to webchat/WhatsApp/email\n8. Return success ack",
+        "height": 296,
+        "width": 300,
+        "color": 3
+      },
+      "id": "d0b8559b-9a5a-4f86-b6d2-46c7c0e856f8",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1536,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Customer Message In\nReceives POST webhook\n\n2. Normalize Input\nExtracts channel, message, email, phone\n\n3. Lookup Store Config\nQueries Postgres for store\n\n4. Build Auth Context\nCreates WooCommerce auth header\n\n5. Store Found?\nChecks if store exists\n\n6. Support Agent\nGPT-4o-mini handles order queries\n\n7. Parse Agent Output\nGets reply, intent, escalate\n\n8. Escalate?\nDecides if human needed\n\n9. Notify Human Support\nSends Gmail to team\n\n10. Channel Router\nPicks webchat, WhatsApp, email\n\n11. Success Ack\nReturns JSON response",
+        "height": 532,
+        "width": 456,
+        "color": 2
+      },
+      "id": "63886076-ccb7-4911-943a-f2dad2c38caf",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        640,
+        208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Customer Message In": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Lookup Store Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Store Config": {
+      "main": [
+        [
+          {
+            "node": "Build Auth Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Auth Context": {
+      "main": [
+        [
+          {
+            "node": "Store Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Found?": {
+      "main": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Support Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Response Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Agent Output": {
+      "main": [
+        [
+          {
+            "node": "Escalate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate?": {
+      "main": [
+        [
+          {
+            "node": "Notify Human Support",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Channel Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Human Support": {
+      "main": [
+        [
+          {
+            "node": "Channel Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Channel Router": {
+      "main": [
+        [
+          {
+            "node": "Success Ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Email Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Reply": {
+      "main": [
+        [
+          {
+            "node": "Success Ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Reply": {
+      "main": [
+        [
+          {
+            "node": "Success Ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get an order by ID": {
+      "ai_tool": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "93ff11d7-ce32-4c6d-a527-b902f40dd336",
+  "meta": {
+    "instanceId": "e1f53822c1dd3bfd16c73e148fe6df093b0e5e171f5879fb4fc94007ad73a3e2"
+  },
+  "id": "TsMZJtE5ye46F6rU",
+  "tags": []
+}
