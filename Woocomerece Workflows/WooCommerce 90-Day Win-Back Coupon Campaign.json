@@ -1,0 +1,723 @@
+{
+  "name": "WooCommerce 90-Day Win-Back Coupon Campaign",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "cc60009c-572b-46fc-8b06-6efa62840f46",
+      "name": "Daily 9AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -864,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "order",
+        "operation": "getAll",
+        "returnAll": true,
+        "options": {
+          "after": "={{ $now.minus({ years: 2 }).toISO() }}",
+          "status": "any"
+        }
+      },
+      "id": "df789552-2c9d-4de9-959c-3f6437b051da",
+      "name": "Get Paid Orders (Last 2 Years)",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        416
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "sendTo": "ops-team@yourstore.com",
+        "subject": "WooCommerce Win-Back: Order Fetch Failed",
+        "message": "=Win-back workflow could not fetch WooCommerce orders.\\n\\nError: {{ $json.error?.message || $json.error || 'Unknown error' }}\\nExecution: {{ $execution.id }}\\nTime: {{ $now.toISO() }}",
+        "options": {}
+      },
+      "id": "36133296-993d-4d08-9d93-d7a5aa9980f0",
+      "name": "API Error Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        608
+      ],
+      "webhookId": "eb06015d-0fcc-451a-b134-3edc70040892",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2uBe6lMGoZ7KH0vM",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const PAID_STATUSES = ['completed', 'processing', 'on-hold'];\nconst customerMap = {};\n\nfor (const item of $input.all()) {\n  const order = item.json;\n  if (!PAID_STATUSES.includes(order.status)) continue;\n\n  const billing = order.billing || {};\n  if (!billing.email) continue; // can't coupon/email a customer with no address on file\n\n  const key = (order.customer_id && order.customer_id !== 0)\n    ? `cust_${order.customer_id}`\n    : `email_${billing.email.toLowerCase()}`;\n\n  const orderDate = new Date(order.date_created);\n\n  if (!customerMap[key] || new Date(customerMap[key].lastOrderDate) < orderDate) {\n    customerMap[key] = {\n      customerKey: key,\n      customerId: order.customer_id || null,\n      email: billing.email,\n      firstName: billing.first_name || 'there',\n      lastName: billing.last_name || '',\n      lastOrderDate: order.date_created,\n    };\n  }\n}\n\nconst now = new Date();\nconst results = Object.values(customerMap).map((c) => {\n  const daysSince = Math.floor((now - new Date(c.lastOrderDate)) / (1000 * 60 * 60 * 24));\n  return { ...c, daysSinceLastOrder: daysSince };\n});\n\nreturn results.map((r) => ({ json: r }));"
+      },
+      "id": "fc633f34-f7f9-408d-a382-8cc47af44fac",
+      "name": "Aggregate Last Order Per Customer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.daysSinceLastOrder }}",
+              "rightValue": 90,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "32b1fe76-9f66-4db6-a82e-77b92b1a0a61",
+      "name": "Inactive 90+ Days?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -112,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "44f8f8ef-f015-4d2a-8c92-204bc22ac239",
+      "name": "Process 10 Customers at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        192,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst total = items.length;\nconst success = items.filter(i => i.status === 'success').length;\nconst couponFailed = items.filter(i => i.status === 'coupon_failed').length;\nconst emailFailed = items.filter(i => i.status === 'email_failed').length;\n\nreturn [{\n  json: {\n    runDate: new Date().toISOString(),\n    totalInactiveCustomers: total,\n    couponsSentSuccessfully: success,\n    couponCreationFailures: couponFailed,\n    emailSendFailures: emailFailed,\n  }\n}];"
+      },
+      "id": "9de1f30d-751a-4d2b-b036-615aad11592b",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "ops-team@yourstore.com",
+        "subject": "=Win-Back Campaign Summary - {{ $json.runDate }}",
+        "message": "=Inactive customers found: {{ $json.totalInactiveCustomers }}\\nCoupons sent successfully: {{ $json.couponsSentSuccessfully }}\\nCoupon creation failures: {{ $json.couponCreationFailures }}\\nEmail send failures: {{ $json.emailSendFailures }}",
+        "options": {}
+      },
+      "id": "174b8570-8b30-4cd8-87f2-9421d960d182",
+      "name": "Send Daily Summary",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        704,
+        208
+      ],
+      "webhookId": "ffa98640-7be3-4487-92d0-ac5ee1227114"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nconst randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();\nconst base = item.customerId ? item.customerId : item.email.split('@')[0];\nconst couponCode = `WINBACK-${base}-${randomSuffix}`;\n\nconst expiry = new Date();\nexpiry.setDate(expiry.getDate() + 30);\nconst expiryDate = expiry.toISOString().split('T')[0];\n\nreturn {\n  json: {\n    ...item,\n    couponCode,\n    discountType: 'percent',\n    discountAmount: '15',\n    expiryDate,\n  },\n};"
+      },
+      "id": "d077f126-4f4d-4725-a1ce-fd408ae716ae",
+      "name": "Build Coupon Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-STORE-DOMAIN.com/wp-json/wc/v3/coupons",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wooCommerceApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ code: $json.couponCode, discount_type: $json.discountType, amount: $json.discountAmount, individual_use: true, usage_limit: 1, date_expires: $json.expiryDate, email_restrictions: [$json.email] }) }}",
+        "options": {}
+      },
+      "id": "35c33ae7-6392-42e5-9ea2-86b279a0715c",
+      "name": "Create Coupon (Attempt 1)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        416
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "id": "abb6468f-a769-40dd-9667-a7dfa1b18649",
+      "name": "Wait Before Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        624
+      ],
+      "webhookId": "8ff8db16-eb41-431b-aae9-71d133157b9b"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-STORE-DOMAIN.com/wp-json/wc/v3/coupons",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wooCommerceApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ code: $json.couponCode, discount_type: $json.discountType, amount: $json.discountAmount, individual_use: true, usage_limit: 1, date_expires: $json.expiryDate, email_restrictions: [$json.email] }) }}",
+        "options": {}
+      },
+      "id": "7b6142c0-9149-405c-b929-4d57a5d4ee64",
+      "name": "Create Coupon (Attempt 2)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1136,
+        624
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "status",
+              "value": "coupon_failed",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "errorMessage",
+              "value": "={{ $json.error?.message || $json.error || 'Coupon creation failed after 2 attempts' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "71e8854a-6237-404f-8ee7-ef4a8834be52",
+      "name": "Tag Coupon Failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1360,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "store@yourstore.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=We miss you, {{ $json.firstName }}! Here's 15% off",
+        "html": "=<p>Hi {{ $json.firstName }},</p><p>It's been a while since your last order. Here's <strong>15% off</strong> your next purchase:</p><p style=\\\"font-size:20px;font-weight:bold;\\\">{{ $json.couponCode }}</p><p>Valid until {{ $json.expiryDate }}. We'd love to have you back!</p>",
+        "options": {}
+      },
+      "id": "04c7416e-ff7c-4b84-b378-5288f221749d",
+      "name": "Send Win-Back Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1360,
+        400
+      ],
+      "webhookId": "8e7b902c-1e92-4261-ad18-b67a0f91e49d",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8fc9128b-7161-46da-905d-f660cb7ad08b",
+      "name": "Tag Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "status",
+              "value": "email_failed",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "errorMessage",
+              "value": "={{ $json.error?.message || $json.error || 'Email send/bounce failure' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1c9869b-0a31-45f7-a90d-f0e2c6b804ea",
+      "name": "Tag Email Failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "WinBackLog",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.toISO() }}",
+            "email": "={{ $json.email }}",
+            "customerId": "={{ $json.customerId }}",
+            "couponCode": "={{ $json.couponCode }}",
+            "status": "={{ $json.status }}",
+            "errorMessage": "={{ $json.errorMessage || '' }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "d33be88d-d168-4316-9f6e-da457b3b472b",
+      "name": "Log Result",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1856,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0c39d8df-c08a-45fc-bc92-52889920307a",
+      "name": "Needs Alert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2096,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "ops-team@yourstore.com",
+        "subject": "=Win-Back Alert: {{ $json.status }}",
+        "message": "=Customer: {{ $json.email }}\\nStatus: {{ $json.status }}\\nError: {{ $json.errorMessage }}\\nExecution: {{ $execution.id }}\\nTime: {{ $now.toISO() }}",
+        "options": {}
+      },
+      "id": "95568544-e6e6-4ed2-9998-0b3e3e2db30e",
+      "name": "Failure Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2352,
+        400
+      ],
+      "webhookId": "92a0d278-0540-4e2d-9f9c-5ca9846dde81"
+    },
+    {
+      "parameters": {},
+      "id": "a59f3d48-6a27-4806-a6f7-8a1ad61922be",
+      "name": "Rejoin Loop",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        2608,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Automated WooCommerce 90-Day Win-Back Coupon Campaign",
+        "height": 80,
+        "width": 1144,
+        "color": 4
+      },
+      "id": "d9adac96-f073-4511-a5e9-284078099d37",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        176,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen daily 9 AM triggers, this workflow finds and win-backs inactive customers:\n\n1. Fetch WooCommerce orders from last 2 years\n2. Aggregate last paid order per customer and calculate days since\n3. Filter customers inactive 90+ days\n4. Process in batches of 10\n5. Build unique 15 percent coupon valid 30 days\n6. Create coupon via API with one retry\n7. Send personalized win-back email\n8. Log result to Google Sheets\n9. Alert ops on failures via Gmail\n10. Send daily summary to ops",
+        "height": 376,
+        "width": 396,
+        "color": 3
+      },
+      "id": "0ba1ef06-4054-4078-aec9-ee4c7c4a2306",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1344,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Daily 9AM Trigger\nStarts workflow every day at 9 AM\n\n2. Get Paid Orders (Last 2 Years)\nPulls WooCommerce orders from last 2 years\n\n3. API Error Alert\nEmails ops if order fetch fails\n\n4. Aggregate Last Order Per Customer\nKeeps only paid statuses and finds each customer's most recent order date\n\n5. Inactive 90+ Days?\nChecks if days since last order is 90 or more\n\n6. Process 10 Customers at a Time\nBatches customers to avoid rate limits\n\n7. Build Summary\nCounts totals for daily report after all batches\n\n8. Send Daily Summary\nEmails ops the campaign summary\n\n9. Build Coupon Payload\nCreates unique WINBACK code with 15 percent off and 30 day expiry\n\n10. Create Coupon (Attempt 1)\nCalls WooCommerce API to create coupon\n\n11. Wait Before Retry\nPauses before second attempt\n\n12. Create Coupon (Attempt 2)\nRetries coupon creation once\n\n13. Tag Coupon Failed\nMarks customer when coupon creation fails twice\n\n14. Send Win-Back Email\nSends personalized email with coupon code\n\n15. Tag Success\nMarks successful coupon and email\n\n16. Tag Email Failed\nMarks when email send fails\n\n17. Log Result\nAppends result to Google Sheets WinBackLog\n\n18. Needs Alert?\nChecks if status is not success\n\n19. Failure Alert\nEmails ops about coupon or email failure\n\n20. Rejoin Loop\nReturns to batch processor for next customer",
+        "height": 964,
+        "width": 488,
+        "color": 2
+      },
+      "id": "5906382f-05ce-4699-89c7-cedb20caff2e",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2832,
+        96
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 9AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Paid Orders (Last 2 Years)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Paid Orders (Last 2 Years)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Last Order Per Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "API Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Last Order Per Customer": {
+      "main": [
+        [
+          {
+            "node": "Inactive 90+ Days?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inactive 90+ Days?": {
+      "main": [
+        [
+          {
+            "node": "Process 10 Customers at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process 10 Customers at a Time": {
+      "main": [
+        [
+          {
+            "node": "Build Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Coupon Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Coupon Payload": {
+      "main": [
+        [
+          {
+            "node": "Create Coupon (Attempt 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Coupon (Attempt 1)": {
+      "main": [
+        [
+          {
+            "node": "Send Win-Back Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait Before Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Retry": {
+      "main": [
+        [
+          {
+            "node": "Create Coupon (Attempt 2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Coupon (Attempt 2)": {
+      "main": [
+        [
+          {
+            "node": "Send Win-Back Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag Coupon Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Coupon Failed": {
+      "main": [
+        [
+          {
+            "node": "Log Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Win-Back Email": {
+      "main": [
+        [
+          {
+            "node": "Tag Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag Email Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Success": {
+      "main": [
+        [
+          {
+            "node": "Log Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Email Failed": {
+      "main": [
+        [
+          {
+            "node": "Log Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Result": {
+      "main": [
+        [
+          {
+            "node": "Needs Alert?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Alert?": {
+      "main": [
+        [
+          {
+            "node": "Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejoin Loop",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Failure Alert": {
+      "main": [
+        [
+          {
+            "node": "Rejoin Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rejoin Loop": {
+      "main": [
+        [
+          {
+            "node": "Process 10 Customers at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2fc7e2ea-d42e-42e6-b53c-86707a92bd97",
+  "meta": {
+    "instanceId": "e1f53822c1dd3bfd16c73e148fe6df093b0e5e171f5879fb4fc94007ad73a3e2"
+  },
+  "id": "J8z6wjDzwcZkUK2N",
+  "tags": []
+}
