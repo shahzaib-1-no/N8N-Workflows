@@ -1,0 +1,877 @@
+{
+  "name": "woocommerce_product_created_to_social_publish",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "product.created"
+      },
+      "id": "77cf1050-ecfe-41b8-bc4d-d7367872b6e5",
+      "name": "WooCommerce Trigger",
+      "type": "n8n-nodes-base.wooCommerceTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1824,
+        -208
+      ],
+      "webhookId": "wc-new-product"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "product_id",
+              "name": "product_id",
+              "value": "={{ $json.body.id }}",
+              "type": "number"
+            },
+            {
+              "id": "name",
+              "name": "name",
+              "value": "={{ $json.body.name }}",
+              "type": "string"
+            },
+            {
+              "id": "description",
+              "name": "description",
+              "value": "={{ $json.body.description }}",
+              "type": "string"
+            },
+            {
+              "id": "short_description",
+              "name": "short_description",
+              "value": "={{ $json.body.short_description }}",
+              "type": "string"
+            },
+            {
+              "id": "price",
+              "name": "price",
+              "value": "={{ $json.body.price }}",
+              "type": "string"
+            },
+            {
+              "id": "permalink",
+              "name": "permalink",
+              "value": "={{ $json.body.permalink }}",
+              "type": "string"
+            },
+            {
+              "id": "sku",
+              "name": "sku",
+              "value": "={{ $json.body.sku }}",
+              "type": "string"
+            },
+            {
+              "id": "categories",
+              "name": "categories",
+              "value": "={{ $json.body.categories }}",
+              "type": "array"
+            },
+            {
+              "id": "tags",
+              "name": "tags",
+              "value": "={{ $json.body.tags }}",
+              "type": "array"
+            },
+            {
+              "id": "images",
+              "name": "images",
+              "value": "={{ $json.body.images }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {
+          "dotNotation": false
+        }
+      },
+      "id": "255f819a-bf2a-4273-80e2-c43410eccf48",
+      "name": "Set: Normalize Product Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1568,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Strict mode validation + image extraction\nconst item = $input.first();\nconst product = item.json;\n\nconst errors = [];\nif (!product.name || String(product.name).trim() === '') errors.push('Product name is missing');\nif (!product.price || String(product.price).trim() === '') errors.push('Product price is missing');\nif (!product.permalink || String(product.permalink).trim() === '') errors.push('Product permalink is missing');\n\nlet imageUrls = [];\nif (Array.isArray(product.images) && product.images.length > 0) {\n  imageUrls = product.images\n    .map(img => (typeof img === 'string' ? img : img?.src))\n    .filter(url => url && typeof url === 'string' && url.startsWith('http'))\n    .slice(0, 10);\n}\n\nconst categoryNames = Array.isArray(product.categories)\n  ? product.categories.map(c => c.name || c).filter(Boolean).join(', ')\n  : '';\nconst tagNames = Array.isArray(product.tags)\n  ? product.tags.map(t => t.name || t).filter(Boolean).join(', ')\n  : '';\n\nconst stripHtml = (html) => String(html || '')\n  .replace(/<[^>]*>/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst cleanDescription = stripHtml(product.description).slice(0, 1500);\nconst cleanShortDescription = stripHtml(product.short_description).slice(0, 300);\n\nreturn [{\n  json: {\n    ...product,\n    image_urls: imageUrls,\n    primary_image: imageUrls[0] || null,\n    has_images: imageUrls.length > 0,\n    category_names: categoryNames,\n    tag_names: tagNames,\n    clean_description: cleanDescription,\n    clean_short_description: cleanShortDescription,\n    validation_errors: errors,\n    is_valid: errors.length === 0 && imageUrls.length > 0\n  }\n}];"
+      },
+      "id": "f18d466d-64e2-4de4-ba9d-fcf6e8d8c10b",
+      "name": "Code: Validate & Extract Images",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-images",
+              "leftValue": "={{ $json.has_images }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "is-valid",
+              "leftValue": "={{ $json.is_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ea6430d4-4ea0-44e4-adea-430b62356dbd",
+      "name": "IF: Has Images?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1072,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "admin@example.com",
+        "subject": "=[WooCommerce] Missing Product Image — Product #{{ $json.product_id }}",
+        "message": "=Hi,\n\nA new WooCommerce product was published but has NO images, so the social media auto-publisher skipped it.\n\nProduct Details:\n- ID: {{ $json.product_id }}\n- Name: {{ $json.name }}\n- Price: {{ $json.price }}\n- URL: {{ $json.permalink }}\n- Validation errors: {{ $json.validation_errors }}\n\nPlease add product images in WooCommerce and re-publish, or run the workflow manually for this product.\n\n— n8n Auto-Publisher",
+        "options": {}
+      },
+      "id": "3cf08874-b41f-453e-908b-ca45f60fd799",
+      "name": "Gmail: Missing Image Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        32
+      ],
+      "webhookId": "gmail-missing-image"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ABC_YOUR_SHEET_ID_XYZ",
+          "mode": "list",
+          "cachedResultName": "Social_Publisher_Activity_Log"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ActivityLog"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now.toISO() }}",
+            "ProductID": "={{ $json.product_id }}",
+            "ProductName": "={{ $json.name }}",
+            "Platform": "n/a",
+            "Status": "={{ $json.status || 'FAILED' }}",
+            "Details": "={{ $json.details || $json.validation_errors }}",
+            "PostID": "",
+            "Error": "={{ $json.error || '' }}"
+          },
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "ff605b2a-4d11-4085-945d-43736e790cc1",
+      "name": "Sheets: Log Activity",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        272,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "lookup",
+        "documentId": {
+          "__rl": true,
+          "value": "1ABC_YOUR_SHEET_ID_XYZ",
+          "mode": "list",
+          "cachedResultName": "Social_Publisher_Activity_Log"
+        }
+      },
+      "id": "11d72b9b-29b4-4b83-87f5-f7d709c30c53",
+      "name": "Sheets: Check Duplicate",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -656,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Detect duplicate based on Sheets lookup result\nconst input = $input.first();\nconst product = $('Set: Normalize Product Data').first().json;\n\nconst lookupResults = input.json || {};\nconst matchedRows = [];\nfor (const key of Object.keys(lookupResults)) {\n  const v = lookupResults[key];\n  if (Array.isArray(v) && v.length > 0) {\n    matchedRows.push(...v);\n  }\n}\n\nconst alreadyPosted = matchedRows.some(r => r && r.Status === 'PUBLISHED');\n\nreturn [{\n  json: {\n    ...product,\n    duplicate: alreadyPosted,\n    duplicate_match_count: matchedRows.length\n  }\n}];"
+      },
+      "id": "066bf9b9-36e3-4dfc-9394-0b632133c7c7",
+      "name": "Code: Duplicate Detector",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-not-duplicate",
+              "leftValue": "={{ $json.duplicate }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e4036466-58ea-4311-8670-3ec96817ee55",
+      "name": "IF: Already Posted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -160,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Build the OpenAI prompt from product data\nconst p = $input.first().json;\n\nconst productContext = `\nProduct Name: ${p.name}\nPrice: ${p.price}\nShort Description: ${p.clean_short_description || (p.clean_description || '').slice(0, 200) || 'N/A'}\nDescription: ${p.clean_description || 'N/A'}\nCategories: ${p.category_names || 'N/A'}\nTags: ${p.tag_names || 'N/A'}\nProduct URL: ${p.permalink}\n`.trim();\n\nconst systemPrompt = `You are a social media copywriter for an e-commerce brand. Your job is to turn product information into scroll-stopping Instagram and Facebook posts.\n\nRULES:\n- Write a caption between 80 and 180 words. Punchy, sensory, conversational — not corporate.\n- Front-load the hook in the first line so it works as the preview text before \"...more\".\n- Use 2-4 short sentences max per caption. Emojis are OK, sparingly (1-3 total).\n- Always include a clear call-to-action pointing to the product link.\n- Generate between 8 and 15 hashtags. Mix broad (#style, #fashion) with niche (#productcategory). Put hashtags on a new line at the end.\n- For Instagram: keep caption under 2200 chars. Hashtags go after the caption on a new line.\n- For Facebook: lead with a value-driven hook, hashtags optional but include 2-3 if natural.\n- Never invent product details that aren't in the input. If something is missing, lean on the description.\n- Maintain a friendly, premium, modern brand voice.\n\nReturn a strict JSON object with exactly these keys: \"instagram_caption\", \"facebook_caption\", \"hashtags\" (array of strings without the leading #), \"reasoning\" (1 sentence explaining the angle).\nNo prose outside the JSON. No markdown fences.`;\n\nconst userPrompt = `Generate the social post for this product.\\n\\n${productContext}\\n\\nReturn strict JSON only.`;\n\nreturn [{\n  json: {\n    systemPrompt,\n    userPrompt,\n    product_name: p.name,\n    product_id: p.product_id,\n    image_urls: p.image_urls,\n    primary_image: p.primary_image,\n    has_images: p.has_images,\n    permalink: p.permalink,\n    price: p.price\n  }\n}];"
+      },
+      "id": "921455f0-5bbb-45db-9737-04c0516556bd",
+      "name": "Code: Build AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "message",
+        "requestOptions": {}
+      },
+      "id": "eb066ee3-5c3e-459b-bf1d-37b4a8fb6dde",
+      "name": "OpenAI: Generate Caption + Hashtags",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -240
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse the OpenAI response\nconst item = $input.first();\nconst meta = $('Code: Build AI Prompt').first().json;\n\nlet raw = '';\nif (item.json?.message?.content) {\n  raw = item.json.message.content;\n} else if (item.json?.choices?.[0]?.message?.content) {\n  raw = item.json.choices[0].message.content;\n} else if (typeof item.json?.output === 'string') {\n  raw = item.json.output;\n} else if (item.json?.error) {\n  return [{\n    json: {\n      ...meta,\n      caption_success: false,\n      error: item.json.error?.message || 'OpenAI call failed',\n      fallback_used: false\n    }\n  }];\n}\n\nlet parsed = null;\nconst tryParse = (s) => { try { return JSON.parse(s); } catch (e) { return null; } };\n\nparsed = tryParse(raw);\nif (!parsed) {\n  const stripped = raw.replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '').trim();\n  parsed = tryParse(stripped);\n}\n\nif (!parsed || typeof parsed !== 'object') {\n  return [{\n    json: {\n      ...meta,\n      caption_success: false,\n      error: 'OpenAI did not return valid JSON',\n      raw_response: String(raw).slice(0, 500),\n      fallback_used: false\n    }\n  }];\n}\n\nconst ig = String(parsed.instagram_caption || '').trim();\nconst fb = String(parsed.facebook_caption || '').trim();\nconst tags = Array.isArray(parsed.hashtags) ? parsed.hashtags : [];\n\nif (!ig || !fb) {\n  return [{\n    json: {\n      ...meta,\n      caption_success: false,\n      error: 'Caption missing in OpenAI response',\n      fallback_used: false\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...meta,\n    caption_success: true,\n    instagram_caption: ig,\n    facebook_caption: fb,\n    hashtags: tags,\n    ai_reasoning: parsed.reasoning || '',\n    raw_response: String(raw).slice(0, 1000)\n  }\n}];"
+      },
+      "id": "a690f7db-2a65-45e8-8c1f-a15f9b1243fa",
+      "name": "Code: Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "caption-ok",
+              "leftValue": "={{ $json.caption_success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "45c79e8c-ee28-42fb-90c6-9467769d6d88",
+      "name": "IF: Caption OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Fallback template when AI caption generation fails\nconst p = $('Set: Normalize Product Data').first().json;\nconst desc = (p.clean_short_description || p.clean_description || '').slice(0, 200);\n\nconst hashtags = [];\nif (p.category_names) {\n  p.category_names.split(',').slice(0, 3).forEach(c => {\n    const tag = c.trim().toLowerCase().replace(/\\s+/g, '');\n    if (tag) hashtags.push(tag);\n  });\n}\nhashtags.push('newproduct', 'shopnow', 'musthave');\n\nconst igCaption = `✨ New drop: ${p.name} \\n\\n${desc} \\n\\nShop now 👉 ${p.permalink}`;\nconst fbCaption = `New on the shop: ${p.name} — ${p.price} \\n\\n${desc} \\n\\nGet it here: ${p.permalink}`;\n\nreturn [{\n  json: {\n    ...p,\n    instagram_caption: igCaption,\n    facebook_caption: fbCaption,\n    hashtags: hashtags.slice(0, 10),\n    ai_reasoning: 'Fallback template — OpenAI generation failed',\n    caption_success: true,\n    fallback_used: true\n  }\n}];"
+      },
+      "id": "e21aa50c-3ee9-49ec-9da9-ccf97bfeef60",
+      "name": "Code: Fallback Template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Final post formatting — combine caption + hashtags + URL\nconst item = $input.first().json;\n\nconst tagList = (item.hashtags || [])\n  .filter(t => t && typeof t === 'string')\n  .map(t => t.replace(/^#/, '').trim())\n  .filter(Boolean);\n\nconst hashtagString = tagList.length > 0\n  ? '\\n\\n' + tagList.map(t => '#' + t).join(' ')\n  : '';\n\nlet igFinal = (item.instagram_caption || '').trim() + hashtagString;\nif (igFinal.length > 2200) {\n  igFinal = igFinal.slice(0, 2197) + '...';\n}\n\nconst fbHashtags = tagList.slice(0, 3).map(t => '#' + t).join(' ');\nlet fbFinal = (item.facebook_caption || '').trim();\nif (fbHashtags) {\n  fbFinal += '\\n\\n' + fbHashtags;\n}\n\nreturn [{\n  json: {\n    ...item,\n    instagram_post_text: igFinal,\n    facebook_post_text: fbFinal,\n    hashtag_count: tagList.length,\n    ready_to_publish: true\n  }\n}];"
+      },
+      "id": "0332b7b2-518e-46e9-9454-be873d3c48fd",
+      "name": "Code: Format Final Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "needs-approval",
+              "leftValue": "={{ $env.WORKFLOW_APPROVAL_REQUIRED }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "54a6528f-38f9-432c-a634-01e7224e0354",
+      "name": "IF: Approval Required?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1408,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "admin@example.com",
+        "subject": "=[Approval Needed] Social post for \"{{ $json.name }}\"",
+        "message": "=Hi,\n\nA new product just came in and is waiting for social approval.\n\nProduct: {{ $json.name }} ({{ $json.price }})\nURL: {{ $json.permalink }}\n\n--- INSTAGRAM CAPTION ---\n{{ $json.instagram_post_text }}\n\n--- FACEBOOK CAPTION ---\n{{ $json.facebook_post_text }}\n\n--- IMAGES (will post all to Instagram as carousel) ---\n{{ $json.image_urls }}\n\nTo approve: open n8n and click \"Execute Next\" on the Wait node. To reject, delete the waiting execution.\n\n— n8n Auto-Publisher",
+        "options": {}
+      },
+      "id": "3bd73615-df7c-4ddb-90e7-b60a28dc69dd",
+      "name": "Gmail: Send for Approval",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1504,
+        -48
+      ],
+      "webhookId": "gmail-approval"
+    },
+    {
+      "parameters": {
+        "amount": 24,
+        "unit": "hours"
+      },
+      "id": "f3fa275a-1736-431d-a129-c6969d6c7b67",
+      "name": "Wait: For Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        -48
+      ],
+      "webhookId": "approval-wait"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Code: Prepare Carousel Data\nconst item = $input.first().json;\nconst images = Array.isArray(item.image_urls) ? item.image_urls : [];\nconst isCarousel = images.length > 1;\n\nreturn [{\n  json: {\n    product_id: item.product_id,\n    product_name: item.name,\n    permalink: item.permalink,\n    price: item.price,\n    caption: item.instagram_post_text,\n    image_urls: images,\n    is_carousel: isCarousel,\n    image_count: images.length,\n    fb_caption: item.facebook_post_text,\n    fb_primary_image: images[0] || null,\n    ai_reasoning: item.ai_reasoning || '',\n    fallback_used: item.fallback_used || false\n  }\n}];"
+      },
+      "id": "ded0f696-29b2-45a1-b993-34cf7777ca19",
+      "name": "Code: Prepare Carousel Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        -288
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Create Instagram Carousel via Graph API\n// 1) child containers per image, 2) carousel container, 3) poll for FINISHED, 4) publish\n\nconst item = $input.first().json;\nconst IG_USER_ID = $env.IG_USER_ID;\nconst IG_ACCESS_TOKEN = $env.IG_ACCESS_TOKEN;\nconst API_VERSION = $env.GRAPH_API_VERSION || 'v22.0';\n\nif (!IG_USER_ID || !IG_ACCESS_TOKEN) {\n  throw new Error('IG_USER_ID and IG_ACCESS_TOKEN env vars are required');\n}\n\nconst images = item.image_urls || [];\nif (images.length === 0) {\n  throw new Error('No images provided to publish to Instagram');\n}\n\nconst baseUrl = `https://graph.facebook.com/${API_VERSION}/${IG_USER_ID}`;\nconst sleep = (ms) => new Promise(r => setTimeout(r, ms));\n\n// Step 1: Create child containers\nconst childIds = [];\nfor (const imageUrl of images) {\n  const body = images.length > 1\n    ? { image_url: imageUrl, is_carousel_item: true, access_token: IG_ACCESS_TOKEN }\n    : { image_url: imageUrl, caption: item.caption, access_token: IG_ACCESS_TOKEN };\n\n  const resp = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${baseUrl}/media`,\n    body,\n    json: true,\n    timeout: 30000\n  });\n  if (!resp.id) {\n    throw new Error(`Failed to create IG child container: ${JSON.stringify(resp)}`);\n  }\n  childIds.push(resp.id);\n}\n\n// Step 2: Create carousel container (if multiple images)\nlet creationId;\nif (images.length > 1) {\n  const carouselResp = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${baseUrl}/media`,\n    body: {\n      media_type: 'CAROUSEL',\n      caption: item.caption,\n      children: childIds,\n      access_token: IG_ACCESS_TOKEN\n    },\n    json: true,\n    timeout: 30000\n  });\n  if (!carouselResp.id) {\n    throw new Error(`Failed to create IG carousel container: ${JSON.stringify(carouselResp)}`);\n  }\n  creationId = carouselResp.id;\n} else {\n  creationId = childIds[0];\n}\n\n// Step 3: Poll for FINISHED status (required for non-cached media)\nlet status = 'IN_PROGRESS';\nlet attempts = 0;\nconst maxAttempts = 12;\nwhile (attempts < maxAttempts) {\n  await sleep(5000);\n  const statusResp = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `https://graph.facebook.com/${API_VERSION}/${creationId}`,\n    qs: { fields: 'status_code,status', access_token: IG_ACCESS_TOKEN },\n    json: true,\n    timeout: 15000\n  });\n  status = statusResp.status_code || 'IN_PROGRESS';\n  if (status === 'FINISHED') break;\n  if (status === 'ERROR') {\n    throw new Error(`IG container entered ERROR state: ${JSON.stringify(statusResp)}`);\n  }\n  attempts++;\n}\n\nif (status !== 'FINISHED') {\n  throw new Error(`IG container not ready after ${maxAttempts} attempts. Last status: ${status}`);\n}\n\n// Step 4: Publish\nconst publishResp = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${baseUrl}/media_publish`,\n  body: { creation_id: creationId, access_token: IG_ACCESS_TOKEN },\n  json: true,\n  timeout: 30000\n});\n\nif (!publishResp.id) {\n  throw new Error(`IG publish failed: ${JSON.stringify(publishResp)}`);\n}\n\nreturn [{\n  json: {\n    ...item,\n    ig_creation_id: creationId,\n    ig_post_id: publishResp.id,\n    ig_status: 'PUBLISHED',\n    ig_post_type: images.length > 1 ? 'CAROUSEL' : 'IMAGE',\n    ig_image_count: images.length\n  }\n}];"
+      },
+      "id": "868edb05-6d41-43fc-8f72-35459ddc0e24",
+      "name": "Code: Create + Publish IG Carousel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        -288
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/{{ $env.GRAPH_API_VERSION || 'v22.0' }}/{{ $env.FB_PAGE_ID }}/photos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"caption\": {{ JSON.stringify($json.fb_caption) }},\n  \"url\": {{ JSON.stringify($json.fb_primary_image) }},\n  \"access_token\": {{ JSON.stringify($env.FB_PAGE_ACCESS_TOKEN) }},\n  \"published\": true\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "0ae4ee7f-d06e-46db-927e-13ed396ad6f4",
+      "name": "HTTP: Publish to Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2368,
+        -288
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Build success log entry\nconst ig = $('Code: Create + Publish IG Carousel').first().json;\nconst fb = $input.first().json;\n\nconst igOk = ig?.ig_status === 'PUBLISHED';\nconst fbOk = !!fb?.id || !!fb?.post_id || (fb?.json && fb.json.id);\n\nlet overallStatus = 'PUBLISHED';\nif (igOk && fbOk) overallStatus = 'PUBLISHED';\nelse if (igOk && !fbOk) overallStatus = 'PARTIAL_SUCCESS';\nelse overallStatus = 'FAILED';\n\nconst fbPostId = fb?.id || fb?.post_id || (fb?.json && fb.json.id) || '';\nconst fbError = fb?.error?.message || (fb?.json && fb.json.error?.message) || '';\n\nreturn [{\n  json: {\n    product_id: ig.product_id || $('Set: Normalize Product Data').first().json.product_id,\n    product_name: ig.product_name,\n    platform: 'Instagram+Facebook',\n    status: overallStatus,\n    details: `IG: ${igOk ? 'OK' : 'FAIL'} (${ig.ig_post_type || 'IMAGE'}), FB: ${fbOk ? 'OK' : 'FAIL'}`,\n    post_id: ig.ig_post_id || '',\n    ig_post_id: ig.ig_post_id || '',\n    fb_post_id: fbPostId,\n    error: fbError,\n    ig_type: ig.ig_post_type,\n    ig_image_count: ig.ig_image_count,\n    fallback_used: ig.fallback_used || false\n  }\n}];"
+      },
+      "id": "d95e461f-be20-4149-922e-80f796e0dea2",
+      "name": "Code: Build Log Entry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "admin@example.com",
+        "subject": "=[URGENT] Social Publisher FAILED — {{ $json.product_name }}",
+        "message": "=Hi,\n\nThe social media auto-publisher failed to publish a product even after all retries.\n\nProduct: {{ $json.product_name }} (ID: {{ $json.product_id }})\nURL: {{ $json.permalink }}\nStatus: {{ $json.status }}\nDetails: {{ $json.details }}\nLast Error: {{ $json.error }}\n\nPlease check:\n1. WooCommerce webhook status\n2. Facebook/Instagram access token validity\n3. Network reachability to graph.facebook.com\n4. n8n execution log for the full stack trace\n\nExecution ID: {{ $execution.id }}\nTimestamp: {{ $now.toISO() }}\n\n— n8n Auto-Publisher",
+        "options": {}
+      },
+      "id": "1c35b4a6-36b7-4555-87a1-d8a0706f47b1",
+      "name": "Gmail: Final Failure Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2896,
+        -272
+      ],
+      "webhookId": "gmail-failure"
+    },
+    {
+      "parameters": {
+        "content": "# WooCommerce Auto-Publisher to Instagram and Facebook",
+        "height": 80,
+        "width": 600,
+        "color": 4
+      },
+      "id": "ebba9359-7edf-4feb-8ed9-a1dc81bcd96f",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        32,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen a new product is created in WooCommerce, this workflow validates and auto-publishes to social:\n\n1. Normalize data and extract images\n2. Block products with no images and alert\n3. Check Google Sheets for duplicates\n4. Generate captions with OpenAI or fallback\n5. Format posts and optionally wait for approval\n6. Publish Instagram carousel and Facebook photo\n7. Log results and alert on failure",
+        "height": 392,
+        "width": 380,
+        "color": 3
+      },
+      "id": "80fc3be1-8e77-47a0-86cd-df0dfff0b043",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2368,
+        -288
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. WooCommerce Trigger\nListens for product.created\n\n2. Set: Normalize Product Data\nExtracts id, name, price, images\n\n3. Code: Validate & Extract Images\nValidates fields and cleans HTML\n\n4. IF: Has Images?\nChecks images and validity\n\n5. Gmail: Missing Image Alert\nEmails admin about missing images\n\n6. Sheets: Log Activity\nAppends results to log sheet\n\n7. Sheets: Check Duplicate\nLooks up prior publishes\n\n8. Code: Duplicate Detector\nSets duplicate flag\n\n9. IF: Already Posted?\nSkips if already published\n\n10. Code: Build AI Prompt\nBuilds OpenAI prompts\n\n11. OpenAI: Generate Caption + Hashtags\nCreates social copy\n\n12. Code: Parse AI Response\nValidates JSON output\n\n13. IF: Caption OK?\nRoutes to fallback if needed\n\n14. Code: Fallback Template\nBuilds basic caption\n\n15. Code: Format Final Post\nAdds hashtags and trims\n\n16. IF: Approval Required?\nChecks env approval flag\n\n17. Gmail: Send for Approval\nEmails captions for review\n\n18. Wait: For Approval\nPauses 24 hours\n\n19. Code: Prepare Carousel Data\nPrepares images and captions\n\n20. Code: Create + Publish IG Carousel\nPublishes to Instagram\n\n21. HTTP: Publish to Facebook\nPosts photo to Facebook Page\n\n22. Code: Build Log Entry\nBuilds final status\n\n23. Gmail: Final Failure Alert\nEmails on publish failure",
+        "height": 1204,
+        "width": 408,
+        "color": 2
+      },
+      "id": "7446a9ef-1e5c-46af-b482-0353b658ed8a",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3120,
+        -512
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WooCommerce Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set: Normalize Product Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: Normalize Product Data": {
+      "main": [
+        [
+          {
+            "node": "Code: Validate & Extract Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Validate & Extract Images": {
+      "main": [
+        [
+          {
+            "node": "IF: Has Images?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Has Images?": {
+      "main": [
+        [
+          {
+            "node": "Sheets: Check Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail: Missing Image Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: Missing Image Alert": {
+      "main": [
+        [
+          {
+            "node": "Sheets: Log Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets: Check Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Code: Duplicate Detector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Duplicate Detector": {
+      "main": [
+        [
+          {
+            "node": "IF: Already Posted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Already Posted?": {
+      "main": [
+        [
+          {
+            "node": "Code: Build AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sheets: Log Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Generate Caption + Hashtags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Generate Caption + Hashtags": {
+      "main": [
+        [
+          {
+            "node": "Code: Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "IF: Caption OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Caption OK?": {
+      "main": [
+        [
+          {
+            "node": "Code: Format Final Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code: Fallback Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Fallback Template": {
+      "main": [
+        [
+          {
+            "node": "Code: Format Final Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Format Final Post": {
+      "main": [
+        [
+          {
+            "node": "IF: Approval Required?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Approval Required?": {
+      "main": [
+        [
+          {
+            "node": "Code: Prepare Carousel Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail: Send for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: Send for Approval": {
+      "main": [
+        [
+          {
+            "node": "Wait: For Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait: For Approval": {
+      "main": [
+        [
+          {
+            "node": "Code: Prepare Carousel Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Prepare Carousel Data": {
+      "main": [
+        [
+          {
+            "node": "Code: Create + Publish IG Carousel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Create + Publish IG Carousel": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Publish to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Publish to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Log Entry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail: Final Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build Log Entry": {
+      "main": [
+        [
+          {
+            "node": "Sheets: Log Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1d326e71-5ce1-414c-96f6-8482adb23801",
+  "meta": {
+    "instanceId": "c5a5331973f441bde5fa004c1414d85455f24ba4151b34b9b3d4606cccd4ae0f"
+  },
+  "nodeGroups": [],
+  "id": "sVRxPQef17hvjDCS",
+  "tags": []
+}
