@@ -1,0 +1,661 @@
+{
+  "name": "competitor_price_ai_pricing",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "50f811da-9984-4499-9215-d4ab20979678",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -784,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "competitor-price-change",
+        "responseMode": "lastNode",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "32f09543-05e5-45ad-afd9-47e32cd73900",
+      "name": "Competitor Price Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -784,
+        352
+      ],
+      "webhookId": "aaf0e22a-6602-440a-9309-f5a8f627658b"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 100,
+        "options": {}
+      },
+      "id": "da150f53-8680-44d6-9ade-d17c23056af0",
+      "name": "Fetch All Products",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://{{ $credentials.wooCommerceApi.url }}/wp-json/wc/v3/products",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "sku",
+              "value": "={{ $json.body.sku }}"
+            },
+            {
+              "name": "per_page",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "2c6acdfb-86ef-42b7-b042-13f92c1e3d25",
+      "name": "Fetch Product by SKU",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -528,
+        352
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "9f657832-7d5b-43da-b94d-746e4b0a489e",
+      "name": "Merge Product Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -272,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "4a61b65b-edbf-46f8-8c19-a3729665616a",
+      "name": "Process Per Product",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -32,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.COMPETITOR_API_URL || 'https://api.competitor-monitor.example.com/v1/price' }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "sku",
+              "value": "={{ $json.sku || $json.body.sku || '' }}"
+            },
+            {
+              "name": "include_competitors",
+              "value": "amazon,walmart,target,bestbuy"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $credentials.httpHeaderAuth.name }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "6c830592-f30e-4ad5-a7cf-acffb0d8c9ef",
+      "name": "Fetch Competitor Prices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Product: {{ $json.name }} (ID: {{ $json.id }}, SKU: {{ $json.sku }})\nCurrent Regular Price: {{ $json.regular_price }}\nCurrent Sale Price: {{ $json.sale_price }}\nStock Quantity: {{ $json.stock_quantity }}\nSales Velocity (units/day, last 30d): {{ $json.total_sales ? Math.round($json.total_sales / 30) : 'unknown' }}\nProduct Cost (COGS): {{ $json.cost || 'unknown' }}\n\nCompetitor Data:\n{{ JSON.stringify($('Fetch Competitor Prices').item.json, null, 2) }}\n\nAnalyze the situation and return ONLY a valid JSON object with these fields:\n{\n  \"new_price\": \"<string: recommended new regular price>\",\n  \"flash_sale_active\": <boolean>,\n  \"discount_percent\": <number 0-30>,\n  \"sale_price\": \"<string: sale price if flash_sale_active else empty string>\",\n  \"reasoning\": \"<1-2 sentence explanation>\"\n}",
+        "options": {
+          "maxIterations": 5
+        }
+      },
+      "id": "4cf4ec7d-580b-451b-8887-4a621ba9bfcf",
+      "name": "AI Pricing Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        480,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// =============================================================\n// VALIDATION + ROLLBACK GUARD\n// Parses AI response and enforces business rules.\n// =============================================================\nconst MIN_MARGIN = 0.20;   // 20% minimum margin\nconst MAX_DISCOUNT = 30;   // 30% max discount\n\n// 1. Pull the AI output. AI Agent typically nests it under .output\nconst aiRaw = $input.first().json;\nconst productCtx = $('Fetch Competitor Prices').item.json;\n\n// Pull original product context from earlier node (batch item)\nconst batchItem = $('Process Per Product').item.json;\n\nlet parsed = null;\nconst candidate = aiRaw.output || aiRaw.text || JSON.stringify(aiRaw);\ntry {\n  // Extract JSON block if AI wrapped it in prose\n  const m = candidate.match(/\\{[\\s\\S]*\\}/);\n  parsed = m ? JSON.parse(m[0]) : null;\n} catch (e) {\n  parsed = null;\n}\n\nconst errors = [];\n\nif (!parsed) {\n  errors.push('AI response could not be parsed as JSON');\n} else {\n  const newPrice = parseFloat(parsed.new_price);\n  const salePrice = parseFloat(parsed.sale_price || '0');\n  const discount = parseFloat(parsed.discount_percent || '0');\n  const cost = parseFloat(batchItem.cost || batchItem.meta_data?.find(m => m.key === 'cost')?.value || '0');\n\n  // Sanity checks\n  if (isNaN(newPrice) || newPrice <= 0) {\n    errors.push(`new_price invalid: ${parsed.new_price}`);\n  }\n  if (isNaN(discount) || discount < 0 || discount > MAX_DISCOUNT) {\n    errors.push(`discount_percent out of bounds (0-${MAX_DISCOUNT}): ${parsed.discount_percent}`);\n  }\n  if (cost > 0 && !isNaN(newPrice)) {\n    const margin = (newPrice - cost) / newPrice;\n    if (margin < MIN_MARGIN) {\n      errors.push(`margin ${(margin*100).toFixed(1)}% below minimum ${(MIN_MARGIN*100).toFixed(0)}% (cost=${cost})`);\n    }\n  }\n  if (parsed.flash_sale_active && (!isNaN(salePrice) && salePrice >= newPrice)) {\n    errors.push(`sale_price must be < new_price when flash_sale_active`);\n  }\n}\n\nreturn [{\n  json: {\n    is_valid: errors.length === 0,\n    errors: errors,\n    product_id: batchItem.id,\n    sku: batchItem.sku,\n    product_name: batchItem.name,\n    current_regular_price: batchItem.regular_price,\n    current_sale_price: batchItem.sale_price,\n    ai_decision: parsed,\n    timestamp: new Date().toISOString()\n  }\n}];\n"
+      },
+      "id": "4fe9989b-62d9-495e-9578-4c09ed0006b5",
+      "name": "Validate Pricing Rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond_valid",
+              "leftValue": "={{ $json.is_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dbe6ad03-2c94-44bd-af45-40c0f1580867",
+      "name": "Price Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        976,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "product",
+        "operation": "update",
+        "productId": "={{ $json.product_id }}",
+        "updateFields": {},
+        "dimensionsUi": {},
+        "imagesUi": {},
+        "metadataUi": {}
+      },
+      "id": "b04065a8-9f63-488e-806e-c36c6991dcfe",
+      "name": "Update WooCommerce Price",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        1216,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.PRICING_LOG_SHEET_ID || '1abc...your-sheet-id' }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Failed_Validations",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "product_id": "={{ $json.product_id }}",
+            "sku": "={{ $json.sku }}",
+            "product_name": "={{ $json.product_name }}",
+            "current_price": "={{ $json.current_regular_price }}",
+            "ai_decision": "={{ JSON.stringify($json.ai_decision) }}",
+            "errors": "={{ $json.errors.join('; ') }}",
+            "status": "PENDING_MANUAL_REVIEW"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "product_id",
+              "displayName": "product_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "sku",
+              "displayName": "sku",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "product_name",
+              "displayName": "product_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "current_price",
+              "displayName": "current_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "ai_decision",
+              "displayName": "ai_decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "42f683e1-f2e7-4274-86ef-a78033730246",
+      "name": "Log Failure to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.3,
+      "position": [
+        1216,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "message": "=Subject: [Pricing] Invalid Price Generated — Manual Review Needed\n\nProduct: {{ $json.product_name }} (ID: {{ $json.product_id }}, SKU: {{ $json.sku }})\nCurrent Price: {{ $json.current_regular_price }}\nTimestamp: {{ $json.timestamp }}\n\nValidation Errors:\n{{ $json.errors.map(e => '  - ' + e).join('\\n') }}\n\nAI Decision:\n{{ JSON.stringify($json.ai_decision, null, 2) }}\n\nAction Required: Review the AI decision in the log sheet and either approve the override or correct the business rules.\n\nExecution ID: {{ $execution.id }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "6fb7ae71-eb9d-4cab-a77c-12b4395bf907",
+      "name": "Notify Gmail: Invalid Price",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1472,
+        400
+      ],
+      "webhookId": "d72b9cfa-d04f-4776-97af-e66c616b08a3"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "11cb6cd1-172c-4ff1-9dc3-ac843211af76",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1728,
+        192
+      ],
+      "webhookId": "d825afa3-7191-469b-a881-218561dee3bc"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        432,
+        432
+      ],
+      "id": "eead44ee-2670-4f7d-87cc-6ee0ba859b24",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        576,
+        432
+      ],
+      "id": "be8e2481-9d66-4be7-847b-273098f94eae",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "content": "# AI Competitor Price Monitor for WooCommerce",
+        "height": 80,
+        "width": 520,
+        "color": 4
+      },
+      "id": "0cbee4a8-d1b3-481b-a90a-40d541c9d4e1",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen schedule or webhook fires, this workflow auto-reprices products:\n\n1. Fetch products from WooCommerce\n2. Get competitor prices by SKU\n3. Generate AI price recommendation\n4. Validate margin and discount rules\n5. Update WooCommerce or log failure\n6. Notify admin and continue batch",
+        "height": 344,
+        "width": 332,
+        "color": 3
+      },
+      "id": "c01dc3e1-690b-463b-a93a-8b4f1acf0fb0",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Schedule Trigger\nRuns on schedule\n\n2. Competitor Price Webhook\nListens for competitor updates\n\n3. Fetch All Products\nGets up to 100 products\n\n4. Fetch Product by SKU\nGets single product from webhook\n\n5. Merge Product Sources\nCombines both triggers\n\n6. Process Per Product\nHandles one product at a time\n\n7. Fetch Competitor Prices\nCalls competitor API\n\n8. AI Pricing Agent\nRecommends new price\n\n9. Validate Pricing Rules\nChecks margin and discount\n\n10. Price Valid?\nRoutes valid vs invalid\n\n11. Update WooCommerce Price\nUpdates live price\n\n12. Log Failure to Sheets\nSaves failed decisions\n\n13. Notify Gmail: Invalid Price\nEmails admin alert\n\n14. Wait\nPauses between items\n\n15. Google Gemini Chat Model\nPowers the AI agent\n\n16. Simple Memory\nProvides short memory",
+        "height": 852,
+        "width": 328,
+        "color": 2
+      },
+      "id": "e272d670-d46a-41d1-9cea-3723bd3170b3",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch All Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Competitor Price Webhook": {
+      "main": [
+        [
+          {
+            "node": "Fetch Product by SKU",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Products": {
+      "main": [
+        [
+          {
+            "node": "Merge Product Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Product by SKU": {
+      "main": [
+        [
+          {
+            "node": "Merge Product Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Product Sources": {
+      "main": [
+        [
+          {
+            "node": "Process Per Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Per Product": {
+      "main": [
+        [
+          {
+            "node": "Fetch Competitor Prices",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Competitor Prices": {
+      "main": [
+        [
+          {
+            "node": "AI Pricing Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Pricing Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Pricing Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Pricing Rules": {
+      "main": [
+        [
+          {
+            "node": "Price Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price Valid?": {
+      "main": [
+        [
+          {
+            "node": "Update WooCommerce Price",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Failure to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update WooCommerce Price": {
+      "main": [
+        [
+          {
+            "node": "Notify Gmail: Invalid Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Failure to Sheets": {
+      "main": [
+        [
+          {
+            "node": "Notify Gmail: Invalid Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Gmail: Invalid Price": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Process Per Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Pricing Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Pricing Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "063a469a-8027-49d1-879c-28b70a325628",
+  "meta": {
+    "instanceId": "c5a5331973f441bde5fa004c1414d85455f24ba4151b34b9b3d4606cccd4ae0f"
+  },
+  "nodeGroups": [],
+  "id": "tWiFAh6IrOf1HSZ6",
+  "tags": []
+}
