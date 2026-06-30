@@ -1,0 +1,903 @@
+{
+  "name": "Social Media Auto-Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "7ec55a67-fb07-4c4f-abe9-6e185f4a66ec",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2160,
+        256
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "98205d67-bb81-44a3-bd18-e8a3ae44f553",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2160,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "input1"
+      },
+      "id": "fd001378-506f-4253-88cf-0e1c867810d1",
+      "name": "Merge Triggers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -1856,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Calendar",
+          "mode": "name"
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "9ee8bece-3556-4751-a515-80a326a92cda",
+      "name": "Read Content Calendar",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1616,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter rows: keep only posts where:\n// - Status === \"Scheduled\"\n// - Scheduled time <= now\n// - retry_count < 3\nconst now = new Date();\nconst items = $input.all();\nconst out = [];\nfor (const it of items) {\n  const r = it.json;\n  if (String(r.Status || '').trim().toLowerCase() !== 'scheduled') continue;\n  const due = r['Scheduled Time'] ? new Date(r['Scheduled Time']) : null;\n  if (!due || isNaN(due.getTime()) || due > now) continue;\n  const retries = parseInt(r['Retry Count'] || '0', 10);\n  if (isNaN(retries) || retries >= 3) continue;\n  // Normalize platforms list\n  let platforms = String(r.Platforms || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);\n  // Default if column is empty -> publish to all\n  if (platforms.length === 0) platforms = ['instagram', 'facebook', 'linkedin'];\n  out.push({\n    json: {\n      row_id: r['Row ID'] || r['Post ID'] || '',\n      original_caption: r.Caption || '',\n      media_url: r['Media URL'] || '',\n      media_type: r['Media Type'] || 'image',\n      scheduled_time: r['Scheduled Time'],\n      platforms,\n      retry_count: retries,\n      author_urn: r['LinkedIn Author URN'] || '',\n      ig_user_id: r['Instagram User ID'] || '',\n      fb_page_id: r['Facebook Page ID'] || '',\n      fb_access_token: r['Meta Access Token'] || '',\n      li_access_token: r['LinkedIn Access Token'] || ''\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "dcd79d1f-2003-4f9b-bd43-49960a8453ee",
+      "name": "Filter Due Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.row_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1ddbe6f5-d930-4cfb-aff5-52bb3e3ea111",
+      "name": "Has Due Posts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1104,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "b50adfbb-8857-435e-afe1-133deb779ce9",
+      "name": "Loop Over Posts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -832,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Original caption from the content calendar:\n\"\"\"{{ $json.original_caption }}\"\"\"\n\nTarget platforms: {{ $json.platforms.join(', ') }}\nMedia URL: {{ $json.media_url }}\nMedia type: {{ $json.media_type }}\n\nImprove the caption for each platform, generate relevant hashtags, and score the post quality from 0-100. Be specific to the platform's tone and length conventions.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a senior social media manager. For each target platform you must:\n1. Rewrite the caption in a voice that fits the platform (Instagram: punchy + emoji; Facebook: friendly + conversational; LinkedIn: professional + value-driven).\n2. Add 3-7 relevant, trending hashtags per platform.\n3. Score overall content quality (0-100) considering: clarity, hook strength, hashtag relevance, platform-fit, and call-to-action.\n4. Give 1-2 sentences of quality feedback.\n\nReturn JSON exactly matching the schema. Do not include any text outside the JSON."
+        }
+      },
+      "id": "25a94335-1959-41df-85b1-f961d3a1e0cd",
+      "name": "AI Enhance Content",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -592,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "id": "75c69997-fc1c-412c-b345-195cb1ada5bc",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -608,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pull the AI Agent output (it is the JSON string returned by the structured parser)\nconst raw = $('AI Enhance Content').first().json;\n// Output parser typically returns the parsed object in $json.output\nlet parsed = raw.output || raw;\nif (typeof parsed === 'string') {\n  try { parsed = JSON.parse(parsed); } catch (e) { throw new Error('AI did not return valid JSON: ' + parsed); }\n}\n\nconst platforms = parsed.platforms || {};\nconst score = Number(parsed.quality_score || 0);\n\n// Build a flat per-platform caption+hashtags bundle\nconst buildText = (p) => {\n  if (!p) return '';\n  const tags = (p.hashtags || []).join(' ');\n  return p.caption + (tags ? '\\n\\n' + tags : '');\n};\n\nreturn [{\n  json: {\n    row_id: $('Loop Over Posts').item.json.row_id,\n    retry_count: $('Loop Over Posts').item.json.retry_count,\n    platforms: $('Loop Over Posts').item.json.platforms,\n    media_url: $('Loop Over Posts').item.json.media_url,\n    media_type: $('Loop Over Posts').item.json.media_type,\n    author_urn: $('Loop Over Posts').item.json.author_urn,\n    ig_user_id: $('Loop Over Posts').item.json.ig_user_id,\n    fb_page_id: $('Loop Over Posts').item.json.fb_page_id,\n    fb_access_token: $('Loop Over Posts').item.json.fb_access_token,\n    li_access_token: $('Loop Over Posts').item.json.li_access_token,\n    quality_score: score,\n    quality_feedback: parsed.quality_feedback || '',\n    instagram: {\n      text: buildText(platforms.instagram),\n      has_ig: $('Loop Over Posts').item.json.platforms.includes('instagram')\n    },\n    facebook: {\n      text: buildText(platforms.facebook),\n      has_fb: $('Loop Over Posts').item.json.platforms.includes('facebook')\n    },\n    linkedin: {\n      text: buildText(platforms.linkedin),\n      has_li: $('Loop Over Posts').item.json.platforms.includes('linkedin')\n    }\n  }\n}];"
+      },
+      "id": "2610f610-74e7-4ef8-8fdb-a123edae0e69",
+      "name": "Parse AI Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "q1",
+              "leftValue": "={{ $json.quality_score }}",
+              "rightValue": 60,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "60d095b0-e54e-4bb6-96b2-f50967d27b59",
+      "name": "Quality Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -96,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.ig_user_id }}/media",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"image_url\": \"{{ $json.media_url }}\",\n  \"caption\": \"{{ $json.instagram.text }}\",\n  \"access_token\": \"{{ $json.fb_access_token }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "f2bc88f2-6850-4ec0-9acd-e81830fb8642",
+      "name": "IG - Create Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.ig_user_id }}/media_publish",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"creation_id\": \"{{ $('IG - Create Container').item.json.id }}\",\n  \"access_token\": \"{{ $json.fb_access_token }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "bb228a4c-2e38-4783-8d27-718065cd851e",
+      "name": "IG - Publish Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        416,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.fb_page_id }}/photos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"url\": \"{{ $json.media_url }}\",\n  \"caption\": \"{{ $json.facebook.text }}\",\n  \"access_token\": \"{{ $json.fb_access_token }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "d9bb4a7f-b460-4131-b341-2fa2022c5cce",
+      "name": "Facebook - Publish Photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.li_access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"author\": \"{{ $json.author_urn }}\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": \"{{ $json.linkedin.text }}\"\n      },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "9b4e83be-c01d-4465-af04-e62d7dd0dc64",
+      "name": "LinkedIn - Publish Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        912,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect results from the 3 publishes (Instagram has 2 calls - we treat the publish step as the source of truth)\nconst igPub = $('IG - Publish Container').first().json;\nconst fbPub = $('Facebook - Publish Photo').first().json;\nconst liPub = $('LinkedIn - Publish Post').first().json;\n\nconst igOk = igPub && !igPub.error && igPub.id;\nconst fbOk = fbPub && !fbPub.error && (fbPub.id || fbPub.post_id);\nconst liOk = liPub && !liPub.error && liPub.id;\n\nreturn [{\n  json: {\n    row_id: $('Parse AI Output').item.json.row_id,\n    retry_count: $('Parse AI Output').item.json.retry_count,\n    platforms: $('Parse AI Output').item.json.platforms,\n    ig_ok: !!igOk,\n    fb_ok: !!fbOk,\n    li_ok: !!liOk,\n    all_ok: !!(igOk && fbOk && liOk),\n    ig_response: igPub,\n    fb_response: fbPub,\n    li_response: liPub\n  }\n}];"
+      },
+      "id": "b76b967e-5d5c-4f5a-b10e-46b53915ec5f",
+      "name": "Platform Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "ok1",
+              "leftValue": "={{ $json.all_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "acf71afb-0ecb-4908-87c3-bab1c2ba9cce",
+      "name": "All Platforms OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1408,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Calendar",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Published",
+            "Published At": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "3f2afadc-2411-43a5-98fd-37b28ac50a49",
+      "name": "Update Status - Published",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1664,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Calendar",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Retry Count": "={{ $json.retry_count + 1 }}",
+            "Last Error": "={{ JSON.stringify($json.ig_response && $json.ig_response.error) || JSON.stringify($json.fb_response && $json.fb_response.error) || JSON.stringify($json.li_response && $json.li_response.error) || 'partial-failure' }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "9e83ddb7-aa24-4ac5-803d-71ea07beaf4c",
+      "name": "Increment Retry Count",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1664,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Centralized error record builder. Triggered by:\n// - Quality Check fail (low AI score)\n// - All Platforms OK? = false (partial or full publish failure)\nconst items = $input.all();\nconst out = [];\nfor (const it of items) {\n  const r = it.json;\n  const failed = [];\n  if (r.ig_ok === false) failed.push('Instagram');\n  if (r.fb_ok === false) failed.push('Facebook');\n  if (r.li_ok === false) failed.push('LinkedIn');\n  const reason = r.quality_score !== undefined && r.quality_score < 60\n    ? `Quality check failed (score ${r.quality_score}): ${r.quality_feedback || ''}`\n    : `Publish failed on: ${failed.join(', ') || 'unknown'}`;\n  out.push({\n    json: {\n      timestamp: new Date().toISOString(),\n      row_id: r.row_id || '',\n      reason,\n      retry_count: r.retry_count || 0,\n      platforms: Array.isArray(r.platforms) ? r.platforms.join(',') : (r.platforms || ''),\n      original_caption: r.original_caption || '',\n      quality_score: r.quality_score || null,\n      ig_error: r.ig_response && r.ig_response.error ? JSON.stringify(r.ig_response.error) : '',\n      fb_error: r.fb_response && r.fb_response.error ? JSON.stringify(r.fb_response.error) : '',\n      li_error: r.li_response && r.li_response.error ? JSON.stringify(r.li_response.error) : ''\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "c5f264fc-79e9-48d0-9a0d-9c8bbf2e413b",
+      "name": "Build Error Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Error Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Row ID": "={{ $json.row_id }}",
+            "Reason": "={{ $json.reason }}",
+            "Retry Count": "={{ $json.retry_count }}",
+            "Platforms": "={{ $json.platforms }}",
+            "Original Caption": "={{ $json.original_caption }}",
+            "Quality Score": "={{ $json.quality_score }}",
+            "IG Error": "={{ $json.ig_error }}",
+            "FB Error": "={{ $json.fb_error }}",
+            "LI Error": "={{ $json.li_error }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "eff9473d-422b-446d-b6cb-729fa6589196",
+      "name": "Log Error to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        544,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "subject": "=🚨 Social Publisher Failure — Row {{ $json.row_id }}",
+        "message": "=🚨 Social Media Post Failure\n\nWorkflow: Social Media Auto-Publisher\nExecution ID: {{ $execution.id }}\nTime: {{ $now.toISO() }}\n\nRow ID: {{ $json.row_id }}\nReason: {{ $json.reason }}\nPlatforms: {{ $json.platforms }}\nRetry count: {{ $json.retry_count }}\n\n---\nOriginal caption:\n{{ $json.original_caption }}\n\n---\nDetails:\n- IG: {{ $json.ig_error }}\n- FB: {{ $json.fb_error }}\n- LI: {{ $json.li_error }}\n\n---\nOpen the Error Log tab in Google Sheets for the full record.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "77c10e8d-7b07-4a63-ba0c-4b4a0235d601",
+      "name": "Gmail - Error Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        800,
+        672
+      ],
+      "webhookId": "cb5c067c-fc41-4421-8617-ceac33654da7"
+    },
+    {
+      "parameters": {
+        "operation": "postMessage"
+      },
+      "id": "35b0b7ff-b1f6-4761-be2a-788609b18b97",
+      "name": "Slack - Error Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        672
+      ],
+      "webhookId": "4deba150-d4e6-4ab0-a12c-53c292321aa7"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"platforms\": {\n      \"type\": \"object\",\n      \"description\": \"Per-platform enhanced post\",\n      \"properties\": {\n        \"instagram\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"caption\": { \"type\": \"string\" },\n            \"hashtags\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }\n          }\n        },\n        \"facebook\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"caption\": { \"type\": \"string\" },\n            \"hashtags\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }\n          }\n        },\n        \"linkedin\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"caption\": { \"type\": \"string\" },\n            \"hashtags\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }\n          }\n        }\n      }\n    },\n    \"quality_score\": { \"type\": \"integer\" },\n    \"quality_feedback\": { \"type\": \"string\" }\n  },\n  \"required\": [\"platforms\", \"quality_score\", \"quality_feedback\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -416,
+        544
+      ],
+      "id": "5960ff04-55ad-4300-a06f-a65c98d809f3",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "content": "# Auto-Publish Polished Social Posts From Your Google Sheets Calendar",
+        "height": 80,
+        "width": 712,
+        "color": 4
+      },
+      "id": "679acdd7-4f0c-445c-b8a5-e1ab810f89ae",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -704,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen the 10-minute schedule fires (or you click Manual Trigger), this workflow reads the Google Sheets content calendar, AI-enhances each due post, and publishes to Instagram, Facebook, and LinkedIn:\n\n1. Merge schedule and manual triggers, read the Calendar tab in Google Sheets\n2. Filter to only posts that are Scheduled, due now, and under 3 retries\n3. Loop over each post and send it through a GPT-4o-mini agent for caption rewrite, hashtags, and a 0-100 quality score\n4. If quality score is at least 60, publish to Instagram (2-step), Facebook, and LinkedIn via HTTP calls\n5. Mark the row Published, or bump Retry Count and log the failure\n6. On any failure, append to the Error Log sheet and send Gmail and Slack alerts",
+        "height": 504,
+        "width": 428,
+        "color": 3
+      },
+      "id": "d49796eb-0443-465c-8727-5347991033d0",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2704,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Schedule Trigger\nRuns the workflow every 10 minutes.\n\n2. Manual Trigger\nLets a human kick off the same flow on demand.\n\n3. Merge Triggers\nCombines schedule and manual triggers into one path.\n\n4. Read Content Calendar\nPulls every row from the Calendar tab in Google Sheets.\n\n5. Filter Due Posts\nCode node: keeps only Scheduled, due, and under 3 retries; normalizes platforms.\n\n6. Has Due Posts?\nIF: if row_id exists, proceed; otherwise end.\n\n7. Loop Over Posts\nSplitInBatches that handles one post at a time.\n\n8. AI Enhance Content\nLangChain agent that rewrites captions and adds hashtags per platform.\n\n9. OpenAI Chat Model\nGPT-4o-mini at 0.7 temperature powering the agent.\n\n10. Structured Output Parser\nForces AI output into a strict JSON schema.\n\n11. Parse AI Output\nFlattens per-platform text and reattaches row metadata.\n\n12. Quality Check\nIF: only posts with quality_score at least 60 move on.\n\n13. IG - Create Container\nCreates the Instagram media container via Graph API.\n\n14. IG - Publish Container\nPublishes the Instagram media container.\n\n15. Facebook - Publish Photo\nPosts the photo to the Facebook Page.\n\n16. LinkedIn - Publish Post\nPublishes the UGC post to LinkedIn publicly.\n\n17. Platform Results\nCode node that collects the three responses and computes all_ok.\n\n18. All Platforms OK?\nIF: true sets Published; false bumps Retry Count and logs error.\n\n19. Update Status - Published\nWrites Status = Published and timestamp, then loops.\n\n20. Increment Retry Count\nAdds 1 to Retry Count and saves the first error, then loops.\n\n21. Build Error Log\nBuilds a clean error record for the Error Log sheet.\n\n22. Log Error to Sheet\nAppends the error record to the Error Log tab.\n\n23. Gmail - Error Alert\nSends an email with the failure details to the team.\n\n24. Slack - Error Alert\nPosts a failure notification to Slack, then loops.",
+        "height": 1316,
+        "width": 504,
+        "color": 2
+      },
+      "id": "303ad1e1-f99e-43bf-b6dc-7a7b9a7bf065",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1952,
+        -224
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Triggers": {
+      "main": [
+        [
+          {
+            "node": "Read Content Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Content Calendar": {
+      "main": [
+        [
+          {
+            "node": "Filter Due Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Due Posts": {
+      "main": [
+        [
+          {
+            "node": "Has Due Posts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Due Posts?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Posts": {
+      "main": [
+        [
+          {
+            "node": "AI Enhance Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Enhance Content",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Enhance Content": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Output": {
+      "main": [
+        [
+          {
+            "node": "Quality Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quality Check": {
+      "main": [
+        [
+          {
+            "node": "IG - Create Container",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IG - Create Container": {
+      "main": [
+        [
+          {
+            "node": "IG - Publish Container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IG - Publish Container": {
+      "main": [
+        [
+          {
+            "node": "Facebook - Publish Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facebook - Publish Photo": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn - Publish Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn - Publish Post": {
+      "main": [
+        [
+          {
+            "node": "Platform Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Platform Results": {
+      "main": [
+        [
+          {
+            "node": "All Platforms OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All Platforms OK?": {
+      "main": [
+        [
+          {
+            "node": "Update Status - Published",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Increment Retry Count",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Error Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status - Published": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Retry Count": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error Log": {
+      "main": [
+        [
+          {
+            "node": "Log Error to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Error Alert": {
+      "main": [
+        [
+          {
+            "node": "Slack - Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack - Error Alert": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Enhance Content",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "49045e5b-72d1-47e5-9c6e-1a597d461e11",
+  "meta": {
+    "instanceId": "c5a5331973f441bde5fa004c1414d85455f24ba4151b34b9b3d4606cccd4ae0f"
+  },
+  "nodeGroups": [],
+  "id": "jnngZa3mT2xESi9o",
+  "tags": []
+}
