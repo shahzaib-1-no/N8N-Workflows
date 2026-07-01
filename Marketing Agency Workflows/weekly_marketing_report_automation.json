@@ -1,0 +1,806 @@
+{
+  "name": "weekly_marketing_report_automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "d20f764c-fb2e-48bd-9a60-e76d8552b8ca",
+      "name": "Schedule Trigger (Weekly)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -80,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "marketing-report",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "46858d37-9ee3-408a-bc01-0f7ba4ec3582",
+      "name": "Webhook (Manual Run)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -80,
+        240
+      ],
+      "webhookId": "marketing-report-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a_client_id",
+              "name": "client_id",
+              "value": "={{ $json.body.client_id || 'default_client' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_date_start",
+              "name": "date_start",
+              "value": "={{ $json.body.date_start || $now.minus({days: 7}).toFormat('yyyy-MM-dd') }}",
+              "type": "string"
+            },
+            {
+              "id": "a_date_end",
+              "name": "date_end",
+              "value": "={{ $json.body.date_end || $now.minus({days: 1}).toFormat('yyyy-MM-dd') }}",
+              "type": "string"
+            },
+            {
+              "id": "a_report_type",
+              "name": "report_type",
+              "value": "={{ $json.body.report_type || 'weekly' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_gads_cid",
+              "name": "google_ads_customer_id",
+              "value": "={{ $json.body.google_ads_customer_id || '1234567890' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_meta_act",
+              "name": "meta_ad_account_id",
+              "value": "={{ $json.body.meta_ad_account_id || 'act_000000000000000' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_ga4_pid",
+              "name": "ga4_property_id",
+              "value": "={{ $json.body.ga4_property_id || '000000000' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_client_email",
+              "name": "client_email",
+              "value": "={{ $json.body.client_email || 'client@example.com' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_slack_ch",
+              "name": "slack_channel",
+              "value": "={{ $json.body.slack_channel || '#marketing-reports' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_sheet_id",
+              "name": "google_sheet_id",
+              "value": "={{ $json.body.google_sheet_id || 'YOUR_GOOGLE_SHEET_ID' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_slides_tpl",
+              "name": "slides_template_id",
+              "value": "={{ $json.body.slides_template_id || 'YOUR_SLIDES_TEMPLATE_ID' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_pdf_url",
+              "name": "pdf_service_url",
+              "value": "={{ $json.body.pdf_service_url || 'https://api.apitemplate.io/v1/create' }}",
+              "type": "string"
+            },
+            {
+              "id": "a_pdf_key",
+              "name": "pdf_api_key",
+              "value": "={{ $json.body.pdf_api_key || 'YOUR_PDF_API_KEY' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bd11dfce-da41-423d-a158-f9f7b09dbd9d",
+      "name": "Set: Run Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://googleads.googleapis.com/v20/customers/{{ $json.google_ads_customer_id }}/googleAds:searchStream",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $credentials.googleAdsOAuth2Api.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.google_ads_customer_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"SELECT campaign.id, campaign.name, campaign.status, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.ctr, metrics.average_cpc FROM campaign WHERE segments.date BETWEEN '{{ $json.date_start }}' AND '{{ $json.date_end }}' AND campaign.status != 'REMOVED' ORDER BY metrics.cost_micros DESC\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "05fac9bf-dbab-402c-aa44-c6ad9c545191",
+      "name": "HTTP: Google Ads Insights",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        528,
+        -48
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": false,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "graphApiVersion": "v23.0",
+        "options": {}
+      },
+      "id": "6b9b6c03-86e0-4c1f-b3b2-00937fe094de",
+      "name": "Meta Ads: Insights",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        528,
+        144
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://analyticsdata.googleapis.com/v1beta/properties/{{ $json.ga4_property_id }}:runReport",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAnalyticsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"dateRanges\": [{\"startDate\": \"{{ $json.date_start }}\", \"endDate\": \"{{ $json.date_end }}\"}],\n  \"dimensions\": [{\"name\": \"sessionDefaultChannelGroup\"}],\n  \"metrics\": [\n    {\"name\": \"sessions\"},\n    {\"name\": \"totalUsers\"},\n    {\"name\": \"newUsers\"},\n    {\"name\": \"screenPageViews\"},\n    {\"name\": \"engagedSessions\"},\n    {\"name\": \"conversions\"},\n    {\"name\": \"totalRevenue\"},\n    {\"name\": \"bounceRate\"},\n    {\"name\": \"averageSessionDuration\"}\n  ]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "bd6ae9b6-93ab-44ff-a272-955ad76fa973",
+      "name": "HTTP: GA4 Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        528,
+        352
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {},
+      "id": "eeeb7f35-544c-486e-8d34-493c1789799f",
+      "name": "Merge: All Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        864,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $input.all();\n\nconst config = items.find(i => i.json && i.json.google_ads_customer_id)?.json || items[0]?.json;\nconst date_start = config.date_start;\nconst date_end = config.date_end;\nconst report_type = config.report_type;\n\nlet googleAds = { campaigns: [], totals: {} };\nlet metaAds = { campaigns: [], totals: {} };\nlet ga4 = { rows: [], totals: {} };\nlet fetchStatus = { googleAds: 'ok', metaAds: 'ok', ga4: 'ok' };\n\nfor (const item of items) {\n  const j = item.json || {};\n  if (j.results && Array.isArray(j.results) && j.results[0]?.campaign) {\n    googleAds.campaigns = j.results.flatMap(r => (r.campaign || []).map(c => {\n      const m = (r.metrics && r.metrics[0]) || {};\n      return {\n        id: c.id, name: c.name, status: c.status,\n        impressions: Number(m.impressions || 0),\n        clicks: Number(m.clicks || 0),\n        cost: Number(m.costMicros || m.cost_micros || 0) / 1e6,\n        conversions: Number(m.conversions || 0),\n        conversion_value: Number(m.conversionsValue || m.conversions_value || 0),\n        ctr: Number(m.ctr || 0),\n        avg_cpc: Number(m.averageCpc || m.average_cpc || 0) / 1e6\n      };\n    }));\n  } else if (j.data && Array.isArray(j.data)) {\n    metaAds.campaigns = j.data.map(d => {\n      const actions = Array.isArray(d.actions) ? d.actions : [];\n      const purchases = actions.find(a => a.action_type === 'purchase') || {};\n      const roas = Array.isArray(d.purchase_roas) ? d.purchase_roas : [];\n      return {\n        id: d.campaign_id, name: d.campaign_name,\n        impressions: Number(d.impressions || 0),\n        clicks: Number(d.clicks || 0),\n        spend: Number(d.spend || 0),\n        ctr: Number(d.ctr || 0),\n        cpc: Number(d.cpc || 0),\n        cpm: Number(d.cpm || 0),\n        reach: Number(d.reach || 0),\n        frequency: Number(d.frequency || 0),\n        conversions: Number(purchases.value || 0),\n        purchase_roas: roas[0]?.value ? Number(roas[0].value) : 0,\n        date_start: d.date_start, date_stop: d.date_stop\n      };\n    });\n  } else if (j.rows && Array.isArray(j.rows)) {\n    ga4.rows = j.rows.map(r => ({\n      channel: r.dimensionValues?.[0]?.value || 'unknown',\n      sessions: Number(r.metricValues?.[0]?.value || 0),\n      users: Number(r.metricValues?.[1]?.value || 0),\n      newUsers: Number(r.metricValues?.[2]?.value || 0),\n      pageviews: Number(r.metricValues?.[3]?.value || 0),\n      engagedSessions: Number(r.metricValues?.[4]?.value || 0),\n      conversions: Number(r.metricValues?.[5]?.value || 0),\n      revenue: Number(r.metricValues?.[6]?.value || 0),\n      bounceRate: Number(r.metricValues?.[7]?.value || 0),\n      avgSessionDuration: Number(r.metricValues?.[8]?.value || 0)\n    }));\n  }\n}\n\nfunction sum(arr, key) { return arr.reduce((s, x) => s + (x[key] || 0), 0); }\n\nif (googleAds.campaigns.length === 0) fetchStatus.googleAds = 'empty';\nif (metaAds.campaigns.length === 0) fetchStatus.metaAds = 'empty';\nif (ga4.rows.length === 0) fetchStatus.ga4 = 'empty';\n\ngoogleAds.totals = {\n  impressions: sum(googleAds.campaigns, 'impressions'),\n  clicks: sum(googleAds.campaigns, 'clicks'),\n  cost: sum(googleAds.campaigns, 'cost'),\n  conversions: sum(googleAds.campaigns, 'conversions'),\n  conversion_value: sum(googleAds.campaigns, 'conversion_value'),\n  ctr: googleAds.campaigns.length ? (sum(googleAds.campaigns, 'clicks') / Math.max(sum(googleAds.campaigns, 'impressions'), 1)) * 100 : 0,\n  cpa: googleAds.campaigns.length ? sum(googleAds.campaigns, 'cost') / Math.max(sum(googleAds.campaigns, 'conversions'), 1) : 0,\n  roas: googleAds.campaigns.length ? sum(googleAds.campaigns, 'conversion_value') / Math.max(sum(googleAds.campaigns, 'cost'), 1) : 0\n};\n\nmetaAds.totals = {\n  impressions: sum(metaAds.campaigns, 'impressions'),\n  clicks: sum(metaAds.campaigns, 'clicks'),\n  spend: sum(metaAds.campaigns, 'spend'),\n  conversions: sum(metaAds.campaigns, 'conversions'),\n  reach: sum(metaAds.campaigns, 'reach'),\n  ctr: metaAds.campaigns.length ? (sum(metaAds.campaigns, 'clicks') / Math.max(sum(metaAds.campaigns, 'impressions'), 1)) * 100 : 0,\n  cpc: metaAds.campaigns.length ? sum(metaAds.campaigns, 'spend') / Math.max(sum(metaAds.campaigns, 'clicks'), 1) : 0,\n  cpa: metaAds.campaigns.length ? sum(metaAds.campaigns, 'spend') / Math.max(sum(metaAds.campaigns, 'conversions'), 1) : 0,\n  roas: metaAds.campaigns.length && sum(metaAds.campaigns, 'spend') > 0\n    ? sum(metaAds.campaigns.map(c => c.purchase_roas * c.spend)) / sum(metaAds.campaigns, 'spend')\n    : 0\n};\n\nga4.totals = {\n  sessions: sum(ga4.rows, 'sessions'),\n  users: sum(ga4.rows, 'users'),\n  newUsers: sum(ga4.rows, 'newUsers'),\n  pageviews: sum(ga4.rows, 'pageviews'),\n  engagedSessions: sum(ga4.rows, 'engagedSessions'),\n  conversions: sum(ga4.rows, 'conversions'),\n  revenue: sum(ga4.rows, 'revenue'),\n  bounceRate: ga4.rows.length ? (sum(ga4.rows, 'bounceRate') / ga4.rows.length) : 0,\n  avgSessionDuration: ga4.rows.length ? (sum(ga4.rows, 'avgSessionDuration') / ga4.rows.length) : 0\n};\n\nconst crossChannel = {\n  total_ad_spend: googleAds.totals.cost + metaAds.totals.spend,\n  total_conversions: googleAds.totals.conversions + metaAds.totals.conversions + ga4.totals.conversions,\n  total_revenue: googleAds.totals.conversion_value + (metaAds.totals.spend * (metaAds.totals.roas || 0)) + ga4.totals.revenue,\n  overall_roas: 0,\n  overall_cpa: 0,\n  overall_ctr: ((googleAds.totals.clicks + metaAds.totals.clicks) / Math.max(googleAds.totals.impressions + metaAds.totals.impressions, 1)) * 100\n};\ncrossChannel.overall_roas = crossChannel.total_ad_spend > 0 ? crossChannel.total_revenue / crossChannel.total_ad_spend : 0;\ncrossChannel.overall_cpa = crossChannel.total_conversions > 0 ? crossChannel.total_ad_spend / crossChannel.total_conversions : 0;\n\nreturn {\n  json: {\n    ...config,\n    googleAds,\n    metaAds,\n    ga4,\n    crossChannel,\n    fetchStatus,\n    report_period: { start: date_start, end: date_end, type: report_type },\n    generated_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "1d6a4b0e-48d2-4a67-b309-59c857d2f1b2",
+      "name": "Code: Clean & Calculate KPIs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\n\nconst spendByChannel = [\n  { channel: 'Google Ads', spend: d.googleAds.totals.cost, conversions: d.googleAds.totals.conversions, revenue: d.googleAds.totals.conversion_value },\n  { channel: 'Meta Ads', spend: d.metaAds.totals.spend, conversions: d.metaAds.totals.conversions, revenue: d.metaAds.totals.spend * (d.metaAds.totals.roas || 0) },\n  { channel: 'GA4 (Organic + Other)', spend: 0, conversions: d.ga4.totals.conversions, revenue: d.ga4.totals.revenue }\n];\n\nconst ga4ChannelMix = d.ga4.rows.map(r => ({ channel: r.channel, sessions: r.sessions, conversions: r.conversions }));\n\nconst topGoogle = [...d.googleAds.campaigns].sort((a,b)=>b.conversion_value-a.conversion_value).slice(0,5);\nconst topMeta = [...d.metaAds.campaigns].sort((a,b)=>(b.purchase_roas*b.spend)-(a.purchase_roas*a.spend)).slice(0,5);\n\nconst fmtUSD = (v) => `$${(Number(v)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;\nconst fmtNum = (v) => Number(v||0).toLocaleString('en-US');\nconst fmtPct = (v) => `${(Number(v)||0).toFixed(2)}%`;\n\nreturn { json: {\n  ...d,\n  chartData: { spendByChannel, ga4ChannelMix, topGoogle, topMeta },\n  formatted: {\n    googleAds: {\n      spend: fmtUSD(d.googleAds.totals.cost),\n      revenue: fmtUSD(d.googleAds.totals.conversion_value),\n      conversions: fmtNum(d.googleAds.totals.conversions),\n      ctr: fmtPct(d.googleAds.totals.ctr),\n      cpa: fmtUSD(d.googleAds.totals.cpa),\n      roas: `${(d.googleAds.totals.roas||0).toFixed(2)}x`\n    },\n    metaAds: {\n      spend: fmtUSD(d.metaAds.totals.spend),\n      revenue: fmtUSD(d.metaAds.totals.spend * (d.metaAds.totals.roas||0)),\n      conversions: fmtNum(d.metaAds.totals.conversions),\n      ctr: fmtPct(d.metaAds.totals.ctr),\n      cpa: fmtUSD(d.metaAds.totals.cpa),\n      roas: `${(d.metaAds.totals.roas||0).toFixed(2)}x`\n    },\n    ga4: {\n      sessions: fmtNum(d.ga4.totals.sessions),\n      users: fmtNum(d.ga4.totals.users),\n      newUsers: fmtNum(d.ga4.totals.newUsers),\n      pageviews: fmtNum(d.ga4.totals.pageviews),\n      conversions: fmtNum(d.ga4.totals.conversions),\n      revenue: fmtUSD(d.ga4.totals.revenue),\n      bounceRate: fmtPct(d.ga4.totals.bounceRate),\n      avgSessionDuration: `${Math.round((d.ga4.totals.avgSessionDuration||0))}s`\n    },\n    crossChannel: {\n      totalSpend: fmtUSD(d.crossChannel.total_ad_spend),\n      totalRevenue: fmtUSD(d.crossChannel.total_revenue),\n      totalConversions: fmtNum(d.crossChannel.total_conversions),\n      overallRoas: `${(d.crossChannel.overall_roas||0).toFixed(2)}x`,\n      overallCpa: fmtUSD(d.crossChannel.overall_cpa),\n      overallCtr: fmtPct(d.crossChannel.overall_ctr)\n    }\n  }\n} };"
+      },
+      "id": "5a0d26c9-2a81-453e-90a8-691ba3fdecc7",
+      "name": "Code: Build Chart Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.google_sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Report_History",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generated_at": "={{ $json.generated_at }}",
+            "client_id": "={{ $json.client_id }}",
+            "report_type": "={{ $json.report_type }}",
+            "period_start": "={{ $json.report_period.start }}",
+            "period_end": "={{ $json.report_period.end }}",
+            "gads_spend": "={{ $json.googleAds.totals.cost }}",
+            "gads_revenue": "={{ $json.googleAds.totals.conversion_value }}",
+            "gads_conversions": "={{ $json.googleAds.totals.conversions }}",
+            "gads_roas": "={{ $json.googleAds.totals.roas }}",
+            "meta_spend": "={{ $json.metaAds.totals.spend }}",
+            "meta_conversions": "={{ $json.metaAds.totals.conversions }}",
+            "meta_roas": "={{ $json.metaAds.totals.roas }}",
+            "ga4_sessions": "={{ $json.ga4.totals.sessions }}",
+            "ga4_users": "={{ $json.ga4.totals.users }}",
+            "ga4_revenue": "={{ $json.ga4.totals.revenue }}",
+            "overall_roas": "={{ $json.crossChannel.overall_roas }}",
+            "overall_cpa": "={{ $json.crossChannel.overall_cpa }}",
+            "fetch_status_gads": "={{ $json.fetchStatus.googleAds }}",
+            "fetch_status_meta": "={{ $json.fetchStatus.metaAds }}",
+            "fetch_status_ga4": "={{ $json.fetchStatus.ga4 }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "a18bf1b6-e72c-4a8f-b41b-c79d9809c842",
+      "name": "Google Sheets: Log KPIs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1616,
+        128
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a senior marketing analyst preparing an executive client report.\n\nAnalyze the campaign performance data below and produce a CLIENT-FRIENDLY executive summary with these sections (in this exact order):\n\n1. **Headline Summary** (2-3 sentences): top-line performance verdict for the {{ $json.report_period.start }} → {{ $json.report_period.end }} period.\n2. **Key Wins** (3-5 bullet points): what worked well — be specific with numbers.\n3. **Key Issues** (2-4 bullet points): underperforming areas — be specific and constructive.\n4. **Cross-Channel Insights**: how Google Ads, Meta Ads, and GA4 traffic interact (e.g., is paid traffic driving engaged sessions?).\n5. **Recommended Actions** (3-5 bullet points): prioritized, concrete next steps for the client.\n6. **Forecast / Outlook**: 1-2 sentences on projected trend if current pace continues.\n\nKeep the tone professional, clear, and action-oriented. Avoid jargon. Use exact numbers from the data. Highlight any anomalies.\n\n---\nPERFORMANCE DATA:\n\n**Cross-Channel Totals:**\n- Total Ad Spend: ${{ $json.crossChannel.total_ad_spend.toFixed(2) }}\n- Total Revenue: ${{ $json.crossChannel.total_revenue.toFixed(2) }}\n- Total Conversions: {{ $json.crossChannel.total_conversions }}\n- Overall ROAS: {{ $json.crossChannel.overall_roas.toFixed(2) }}x\n- Overall CPA: ${{ $json.crossChannel.overall_cpa.toFixed(2) }}\n- Overall CTR: {{ $json.crossChannel.overall_ctr.toFixed(2) }}%\n\n**Google Ads:**\n- Spend: ${{ $json.googleAds.totals.cost.toFixed(2) }}\n- Revenue: ${{ $json.googleAds.totals.conversion_value.toFixed(2) }}\n- Conversions: {{ $json.googleAds.totals.conversions }}\n- CTR: {{ $json.googleAds.totals.ctr.toFixed(2) }}%\n- CPA: ${{ $json.googleAds.totals.cpa.toFixed(2) }}\n- ROAS: {{ $json.googleAds.totals.roas.toFixed(2) }}x\n- Top campaigns:\n{{ $json.googleAds.campaigns.slice(0,5).map(c => `  • ${c.name}: spend $${c.cost.toFixed(2)}, conv ${c.conversions}, ROAS ${c.conversion_value > 0 && c.cost > 0 ? (c.conversion_value/c.cost).toFixed(2) : 0}x`).join('\\n') }}\n\n**Meta Ads:**\n- Spend: ${{ $json.metaAds.totals.spend.toFixed(2) }}\n- Conversions: {{ $json.metaAds.totals.conversions }}\n- CTR: {{ $json.metaAds.totals.ctr.toFixed(2) }}%\n- CPA: ${{ $json.metaAds.totals.cpa.toFixed(2) }}\n- ROAS: {{ $json.metaAds.totals.roas.toFixed(2) }}x\n- Top campaigns:\n{{ $json.metaAds.campaigns.slice(0,5).map(c => `  • ${c.name}: spend $${c.spend.toFixed(2)}, conv ${c.conversions}, ROAS ${c.purchase_roas.toFixed(2)}x`).join('\\n') }}\n\n**GA4 (website analytics):**\n- Sessions: {{ $json.ga4.totals.sessions }}\n- Users: {{ $json.ga4.totals.users }}\n- New Users: {{ $json.ga4.totals.newUsers }}\n- Engaged Sessions: {{ $json.ga4.totals.engagedSessions }}\n- Conversions: {{ $json.ga4.totals.conversions }}\n- Revenue: ${{ $json.ga4.totals.revenue.toFixed(2) }}\n- Bounce Rate: {{ $json.ga4.totals.bounceRate.toFixed(2) }}%\n- Avg Session Duration: {{ $json.ga4.totals.avgSessionDuration.toFixed(0) }}s\n- Channels:\n{{ $json.ga4.rows.map(r => `  • ${r.channel}: ${r.sessions} sessions, ${r.conversions} conversions, $${r.revenue.toFixed(2)} revenue`).join('\\n') }}\n\n---\nFetch status: Google Ads={{ $json.fetchStatus.googleAds }}, Meta Ads={{ $json.fetchStatus.metaAds }}, GA4={{ $json.fetchStatus.ga4 }}.\nIf any source was empty/failed, acknowledge briefly and base insights on available data only.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a precise, friendly marketing analyst. Output plain text with markdown bullets. Do not invent numbers — only use the data provided. If a section has insufficient data, state it clearly."
+        }
+      },
+      "id": "a33e665f-06ec-4c74-9b3f-49f01e8be79e",
+      "name": "AI Agent: Insights & Summary",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1856,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {
+          "maxTokens": 2000,
+          "temperature": 0.3
+        }
+      },
+      "id": "285195ff-17c7-432b-ba85-afd3a057a35a",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1856,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\nconst aiInsights = (d.output || d.text || '').toString();\n\nconst f = d.formatted || {};\nconst period = `${d.report_period.start} → ${d.report_period.end}`;\n\nconst gAdsRows = (d.googleAds.campaigns || []).slice(0, 10).map(c => `\n  <tr>\n    <td>${c.name}</td>\n    <td>${c.status}</td>\n    <td style=\"text-align:right\">${c.impressions.toLocaleString()}</td>\n    <td style=\"text-align:right\">${c.clicks.toLocaleString()}</td>\n    <td style=\"text-align:right\">$${c.cost.toFixed(2)}</td>\n    <td style=\"text-align:right\">${c.conversions}</td>\n    <td style=\"text-align:right\">$${c.conversion_value.toFixed(2)}</td>\n    <td style=\"text-align:right\">${(c.ctr||0).toFixed(2)}%</td>\n  </tr>`).join('');\n\nconst metaRows = (d.metaAds.campaigns || []).slice(0, 10).map(c => `\n  <tr>\n    <td>${c.name}</td>\n    <td style=\"text-align:right\">${c.impressions.toLocaleString()}</td>\n    <td style=\"text-align:right\">${c.clicks.toLocaleString()}</td>\n    <td style=\"text-align:right\">$${c.spend.toFixed(2)}</td>\n    <td style=\"text-align:right\">${c.conversions}</td>\n    <td style=\"text-align:right\">$${(c.spend*c.purchase_roas).toFixed(2)}</td>\n    <td style=\"text-align:right\">${(c.purchase_roas||0).toFixed(2)}x</td>\n  </tr>`).join('');\n\nconst ga4Rows = (d.ga4.rows || []).map(r => `\n  <tr>\n    <td>${r.channel}</td>\n    <td style=\"text-align:right\">${r.sessions.toLocaleString()}</td>\n    <td style=\"text-align:right\">${r.users.toLocaleString()}</td>\n    <td style=\"text-align:right\">${r.conversions}</td>\n    <td style=\"text-align:right\">$${r.revenue.toFixed(2)}</td>\n  </tr>`).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>Marketing Report — ${period}</title>\n<style>\n  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: #1f2937; max-width: 900px; margin: 0 auto; padding: 32px; background: #ffffff; }\n  h1 { color: #111827; border-bottom: 3px solid #4f46e5; padding-bottom: 12px; margin-bottom: 8px; }\n  h2 { color: #4f46e5; margin-top: 32px; border-left: 4px solid #4f46e5; padding-left: 12px; }\n  .meta { color: #6b7280; font-size: 14px; margin-bottom: 24px; }\n  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 16px 0; }\n  .kpi-card { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff; padding: 16px; border-radius: 8px; }\n  .kpi-card.green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }\n  .kpi-card.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }\n  .kpi-label { font-size: 12px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.05em; }\n  .kpi-value { font-size: 24px; font-weight: 700; margin-top: 4px; }\n  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }\n  th { background: #f3f4f6; padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb; }\n  td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; }\n  tr:nth-child(even) { background: #fafafa; }\n  .insights { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-top: 24px; }\n  .insights h2 { margin-top: 0; }\n  .insights ul { padding-left: 20px; }\n  .insights li { margin: 8px 0; }\n  .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }\n  .status-ok { background: #d1fae5; color: #065f46; }\n  .status-empty { background: #fef3c7; color: #92400e; }\n  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; text-align: center; }\n</style>\n</head>\n<body>\n  <h1>📊 Marketing Performance Report</h1>\n  <div class=\"meta\">\n    <strong>Client:</strong> ${d.client_id} &nbsp;|&nbsp;\n    <strong>Period:</strong> ${period} &nbsp;|&nbsp;\n    <strong>Generated:</strong> ${new Date(d.generated_at).toLocaleString()}\n  </div>\n\n  <h2>Overall Performance</h2>\n  <div class=\"kpi-grid\">\n    <div class=\"kpi-card\"><div class=\"kpi-label\">Total Ad Spend</div><div class=\"kpi-value\">${f.crossChannel?.totalSpend || '$0'}</div></div>\n    <div class=\"kpi-card green\"><div class=\"kpi-label\">Total Revenue</div><div class=\"kpi-value\">${f.crossChannel?.totalRevenue || '$0'}</div></div>\n    <div class=\"kpi-card orange\"><div class=\"kpi-label\">Overall ROAS</div><div class=\"kpi-value\">${f.crossChannel?.overallRoas || '0x'}</div></div>\n  </div>\n  <div class=\"kpi-grid\">\n    <div class=\"kpi-card\"><div class=\"kpi-label\">Total Conversions</div><div class=\"kpi-value\">${f.crossChannel?.totalConversions || '0'}</div></div>\n    <div class=\"kpi-card green\"><div class=\"kpi-label\">Overall CPA</div><div class=\"kpi-value\">${f.crossChannel?.overallCpa || '$0'}</div></div>\n    <div class=\"kpi-card orange\"><div class=\"kpi-label\">Overall CTR</div><div class=\"kpi-value\">${f.crossChannel?.overallCtr || '0%'}</div></div>\n  </div>\n\n  <h2>📡 Google Ads</h2>\n  <div class=\"kpi-grid\">\n    <div class=\"kpi-card\"><div class=\"kpi-label\">Spend</div><div class=\"kpi-value\">${f.googleAds?.spend || '$0'}</div></div>\n    <div class=\"kpi-card green\"><div class=\"kpi-label\">Revenue</div><div class=\"kpi-value\">${f.googleAds?.revenue || '$0'}</div></div>\n    <div class=\"kpi-card orange\"><div class=\"kpi-label\">ROAS</div><div class=\"kpi-value\">${f.googleAds?.roas || '0x'}</div></div>\n  </div>\n  <table>\n    <thead><tr><th>Campaign</th><th>Status</th><th>Impressions</th><th>Clicks</th><th>Cost</th><th>Conv</th><th>Conv Value</th><th>CTR</th></tr></thead>\n    <tbody>${gAdsRows || '<tr><td colspan=\"8\" style=\"text-align:center;color:#9ca3af\">No Google Ads data for this period</td></tr>'}</tbody>\n  </table>\n\n  <h2>📱 Meta Ads (Facebook + Instagram)</h2>\n  <div class=\"kpi-grid\">\n    <div class=\"kpi-card\"><div class=\"kpi-label\">Spend</div><div class=\"kpi-value\">${f.metaAds?.spend || '$0'}</div></div>\n    <div class=\"kpi-card green\"><div class=\"kpi-label\">Est. Revenue</div><div class=\"kpi-value\">${f.metaAds?.revenue || '$0'}</div></div>\n    <div class=\"kpi-card orange\"><div class=\"kpi-label\">ROAS</div><div class=\"kpi-value\">${f.metaAds?.roas || '0x'}</div></div>\n  </div>\n  <table>\n    <thead><tr><th>Campaign</th><th>Impressions</th><th>Clicks</th><th>Spend</th><th>Conv</th><th>Revenue</th><th>ROAS</th></tr></thead>\n    <tbody>${metaRows || '<tr><td colspan=\"7\" style=\"text-align:center;color:#9ca3af\">No Meta Ads data for this period</td></tr>'}</tbody>\n  </table>\n\n  <h2>🌐 Google Analytics 4</h2>\n  <div class=\"kpi-grid\">\n    <div class=\"kpi-card\"><div class=\"kpi-label\">Sessions</div><div class=\"kpi-value\">${f.ga4?.sessions || '0'}</div></div>\n    <div class=\"kpi-card green\"><div class=\"kpi-label\">Users</div><div class=\"kpi-value\">${f.ga4?.users || '0'}</div></div>\n    <div class=\"kpi-card orange\"><div class=\"kpi-label\">Revenue</div><div class=\"kpi-value\">${f.ga4?.revenue || '$0'}</div></div>\n  </div>\n  <table>\n    <thead><tr><th>Channel</th><th>Sessions</th><th>Users</th><th>Conversions</th><th>Revenue</th></tr></thead>\n    <tbody>${ga4Rows || '<tr><td colspan=\"5\" style=\"text-align:center;color:#9ca3af\">No GA4 data for this period</td></tr>'}</tbody>\n  </table>\n\n  <div class=\"insights\">\n    <h2>🤖 AI-Generated Insights & Recommendations</h2>\n    <div>${aiInsights.replace(/\\n/g, '<br>').replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>').replace(/^- /gm, '• ')}</div>\n  </div>\n\n  <div style=\"margin-top:24px;font-size:12px;color:#6b7280\">\n    <strong>Data Source Status:</strong>\n    Google Ads <span class=\"status status-${d.fetchStatus?.googleAds === 'ok' ? 'ok' : 'empty'}\">${d.fetchStatus?.googleAds || 'unknown'}</span> &nbsp;\n    Meta Ads <span class=\"status status-${d.fetchStatus?.metaAds === 'ok' ? 'ok' : 'empty'}\">${d.fetchStatus?.metaAds || 'unknown'}</span> &nbsp;\n    GA4 <span class=\"status status-${d.fetchStatus?.ga4 === 'ok' ? 'ok' : 'empty'}\">${d.fetchStatus?.ga4 || 'unknown'}</span>\n  </div>\n\n  <div class=\"footer\">\n    Generated automatically by n8n Marketing Report Workflow • ${new Date().toISOString()}\n  </div>\n</body>\n</html>`;\n\nreturn { json: { ...d, html_report: html, subject: `📊 Marketing Report — ${period} (${d.client_id})` } };"
+      },
+      "id": "e375cf59-a360-48d5-a6b1-27363f3b3960",
+      "name": "Code: Build HTML Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.pdf_service_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{ $json.pdf_api_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"html\": {{ JSON.stringify($json.html_report) }},\n  \"file_name\": \"marketing_report_{{ $json.client_id }}_{{ $now.toFormat('yyyyMMdd') }}.pdf\",\n  \"format\": \"A4\",\n  \"margin\": {\"top\": \"10mm\", \"bottom\": \"10mm\", \"left\": \"10mm\", \"right\": \"10mm\"},\n  \"orientation\": \"portrait\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "pdf_binary"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "6e41e844-0c8b-4968-8d8a-1d7c53ea570e",
+      "name": "HTTP: HTML → PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2352,
+        128
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "title": "={{ 'Marketing Report — ' + $json.client_id + ' — ' + $json.report_period.start + ' to ' + $json.report_period.end }}"
+      },
+      "id": "0d99768e-ca69-4420-8a39-6ab2e0e4f16d",
+      "name": "Google Slides: Create Presentation",
+      "type": "n8n-nodes-base.googleSlides",
+      "typeVersion": 1,
+      "position": [
+        2608,
+        -64
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "createSlide"
+      },
+      "id": "2a46a204-2836-4475-af59-a078204b15e0",
+      "name": "Google Slides: Add Summary Slide",
+      "type": "n8n-nodes-base.googleSlides",
+      "typeVersion": 1,
+      "position": [
+        2864,
+        -64
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.client_email }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html_report }}",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "pdf_binary"
+              }
+            ]
+          }
+        }
+      },
+      "id": "20661c4a-8371-4e2c-a6e2-8e57885132e7",
+      "name": "Gmail: Send Report to Client",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2752,
+        128
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "webhookId": "c0a44c3e-6cf9-4fb6-a754-0ee147328f75",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "postMessage"
+      },
+      "id": "f3e3c826-5ab8-48ed-b18e-8072000de135",
+      "name": "Slack: Notify Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2608,
+        320
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "webhookId": "17db7d8f-69e4-46a2-b923-7b247435b4ad",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $input.all();\nconst errors = items.filter(i => i.json.error || i.json.message).map(i => ({\n  node: i.json.node || 'unknown',\n  error: (i.json.error?.message || i.json.message || 'unknown error').substring(0, 500)\n}));\n\nreturn {\n  json: {\n    alert_title: '🚨 Marketing Report Workflow ERROR',\n    client_id: items[0]?.json?.client_id || 'unknown',\n    period: items[0]?.json?.report_period || { start: 'unknown', end: 'unknown' },\n    timestamp: new Date().toISOString(),\n    execution_id: $execution.id,\n    error_count: errors.length,\n    errors: errors,\n    summary: errors.map(e => `• ${e.node}: ${e.error}`).join('\\n')\n  }\n};"
+      },
+      "id": "9942adda-6845-4799-84fd-2b00df2857c8",
+      "name": "Code: Format Error Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2176,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "ops-team@example.com",
+        "subject": "={{ '[n8n ALERT] ' + $json.alert_title + ' — ' + $json.client_id }}",
+        "message": "=<h2>{{ $json.alert_title }}</h2>\n<p><strong>Client:</strong> {{ $json.client_id }}<br>\n<strong>Period:</strong> {{ $json.period.start }} → {{ $json.period.end }}<br>\n<strong>Execution ID:</strong> <code>{{ $json.execution_id }}</code><br>\n<strong>Time:</strong> {{ $json.timestamp }}</p>\n<h3>Errors ({{ $json.error_count }}):</h3>\n<pre>{{ $json.summary }}</pre>\n<p>Check the n8n execution log for full details.</p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "66acb9bd-0221-4b38-8909-a8cfab567a9e",
+      "name": "Gmail: Error Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2416,
+        512
+      ],
+      "retryOnFail": false,
+      "webhookId": "721cf267-47c8-45fa-8d62-9a471adeec1c",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "postMessage"
+      },
+      "id": "5e663b31-7e88-46a7-a36c-4a9f100e9550",
+      "name": "Slack: Error Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2416,
+        720
+      ],
+      "retryOnFail": false,
+      "webhookId": "14f2fc89-077a-4e0e-8ac2-660ff2c98f32",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "content": "# Automated Weekly Marketing Report With AI Insights",
+        "height": 80,
+        "width": 552,
+        "color": 4
+      },
+      "id": "f2f2f7ba-4c10-4a37-8657-49c1c15da485",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen the weekly Monday 07:00 cron or a manual webhook fires, this workflow generates and delivers a full client marketing report:\n\n1. Builds the run config from trigger input (client IDs, date range, delivery channels)\n2. Pulls Google Ads, Meta Ads, and GA4 data in parallel\n3. Merges all three sources and calculates KPIs (ROAS, CPA, CTR, Conversions, Revenue)\n4. Formats numbers into display strings and chart-ready structures\n5. Appends each run to a Google Sheets history log\n6. Feeds cleaned KPIs to an AI Agent that writes executive summary, wins, issues, insights, and recommended actions\n7. Renders a branded HTML report with KPI cards, campaign tables, and AI insights\n8. Converts the HTML to a PDF file via an external PDF service\n9. Creates a Google Slides presentation for the period\n10. Emails the PDF plus HTML body to the client via Gmail\n11. Posts a summary message to the team Slack channel\n12. On any uncaught failure, formats the error and alerts the ops team via Gmail and Slack",
+        "height": 680,
+        "width": 444,
+        "color": 3
+      },
+      "id": "550f6933-a981-4168-a43a-d2dd66c56183",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Schedule Trigger (Weekly)\nCron expression 0 7 * * 1, fires every Monday at 07:00.\n\n2. Webhook (Manual Run)\nPOST endpoint at /marketing-report, accepts body overrides for client, dates, channels.\n\n3. Set: Run Config\n13 field assignments, builds client_id, date range, account IDs, sheet ID, PDF service, Slack channel with safe defaults.\n\n4. HTTP: Google Ads Insights\nPOST to Google Ads REST v20 searchStream with GAQL, fetches campaign metrics in micros, retries 3 times.\n\n5. Meta Ads: Insights\nGraph API v23.0, pulls campaign-level spend, impressions, actions, purchase_roas, retries 3 times.\n\n6. HTTP: GA4 Report\nPOST to Analytics Data API v1beta runReport, 9 metrics by channel, retries 3 times.\n\n7. Merge: All Sources\nAppends the three parallel source outputs into a single stream.\n\n8. Code: Clean and Calculate KPIs\nNormalizes payloads, divides micros to dollars, computes ROAS, CPA, CTR per channel and cross-channel, sets fetchStatus flags.\n\n9. Code: Build Chart Data\nFormats USD, percentages, counts; builds spendByChannel, ga4ChannelMix, top campaigns structures.\n\n10. Google Sheets: Log KPIs\nAppends run to Report_History tab with all KPIs and fetch status for historical tracking.\n\n11. AI Agent: Insights and Summary\nStructured 6 section prompt: headline, wins, issues, cross-channel insights, recommended actions, forecast.\n\n12. OpenAI Chat Model\ngpt-4o-mini, temperature 0.3, maxTokens 2000, backs the AI Agent.\n\n13. Code: Build HTML Report\nRenders styled HTML with KPI cards, campaign tables, GA4 table, and AI insights section.\n\n14. HTTP: HTML to PDF\nPosts HTML to PDF service, returns binary pdf_binary, retries 2 times.\n\n15. Google Slides: Create Presentation\nCreates a new deck titled with client ID and date range.\n\n16. Google Slides: Add Summary Slide\nAppends a summary slide to the new presentation.\n\n17. Gmail: Send Report to Client\nSends HTML body with PDF attachment to client email, retries 2 times.\n\n18. Slack: Notify Team\nPosts client, period, headline KPIs, and source status to the team Slack channel.\n\n19. Code: Format Error Alert\nExtracts errors from upstream items, packages alert object with execution ID and summary string.\n\n20. Gmail: Error Alert\nEmails ops-team@example.com with formatted error HTML.\n\n21. Slack: Error Alert\nPosts the same error alert to the ops Slack channel.",
+        "height": 1220,
+        "width": 680,
+        "color": 2
+      },
+      "id": "60542d64-ed49-4fb1-83e4-65d503164c87",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3120,
+        -304
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger (Weekly)": {
+      "main": [
+        [
+          {
+            "node": "Set: Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (Manual Run)": {
+      "main": [
+        [
+          {
+            "node": "Set: Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: Run Config": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Google Ads Insights",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Meta Ads: Insights",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP: GA4 Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Google Ads Insights": {
+      "main": [
+        [
+          {
+            "node": "Merge: All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta Ads: Insights": {
+      "main": [
+        [
+          {
+            "node": "Merge: All Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge: All Sources": {
+      "main": [
+        [
+          {
+            "node": "Code: Clean & Calculate KPIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Clean & Calculate KPIs": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Chart Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build Chart Data": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Log KPIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets: Log KPIs": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Insights & Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Insights & Summary",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Insights & Summary": {
+      "main": [
+        [
+          {
+            "node": "Code: Build HTML Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build HTML Report": {
+      "main": [
+        [
+          {
+            "node": "HTTP: HTML → PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: HTML → PDF": {
+      "main": [
+        [
+          {
+            "node": "Google Slides: Create Presentation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail: Send Report to Client",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Slack: Notify Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Slides: Create Presentation": {
+      "main": [
+        [
+          {
+            "node": "Google Slides: Add Summary Slide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Format Error Alert": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Error Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Slack: Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1c81d0ac-0102-40bc-982e-03c9406124e1",
+  "meta": {
+    "instanceId": "c5a5331973f441bde5fa004c1414d85455f24ba4151b34b9b3d4606cccd4ae0f"
+  },
+  "nodeGroups": [],
+  "id": "PhTPXuBbJ7joLWeN",
+  "tags": []
+}
