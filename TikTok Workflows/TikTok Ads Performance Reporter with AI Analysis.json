@@ -1,0 +1,1336 @@
+{
+  "name": "TikTok Ads Performance Reporter with AI Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# TikTok Ads Performance Reporter with AI Analysis",
+        "height": 80,
+        "width": 504,
+        "color": 4
+      },
+      "id": "c82cad21-ae00-4c7c-bf5c-2709f6c033fe",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2512,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "fcba3a48-36ba-4756-8949-37d390942764",
+      "name": "Schedule Trigger1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.summary.total_spend }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.campaign_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "323b873a-d02f-4f8d-ba4e-ebb09397fe55",
+      "name": "IF Data Complete1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2464,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json, null, 2) }}",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "You are an expert senior paid-media analyst. Your task is to analyze the provided TikTok Ads performance metrics and generate a highly strategic, data-driven report. \n\nCarefully evaluate the weekly trends (spend, efficiency, volume), identify top-performing campaigns (high CTR/ROAS/Conversions) and underperforming campaigns (high CPA, low CTR, or budget bleed) with precise, metric-backed reasons. Provide sharp, actionable optimization recommendations.\n\nCRITICAL: You must output your analysis strictly adhering to the structure defined by the connected Output Parser. Do not include any conversational filler, markdown formatting wrappers (like ```json), or extra text. Return ONLY the raw JSON object.",
+          "maxIterations": 5,
+          "returnIntermediateSteps": false
+        }
+      },
+      "id": "6a7b8f62-3289-4211-98e1-7da01e5f117f",
+      "name": "AI Agent: Analyze Performance1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        3024,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const e = $json;\nreturn {\n  json: {\n    workflow_name: e.workflow?.name || 'TikTok Ads Reporter',\n    failed_node: e.lastNodeExecuted || 'unknown',\n    error_message: e.error?.message || 'Unknown error',\n    error_type: e.error?.name || 'Error',\n    execution_id: e.executionId || e.execution?.id || 'unknown',\n    timestamp: new Date().toISOString(),\n    slack_channel: e.workflow?.settings?.default_slack_channel || '#ads-ops-alerts',\n    fallback_email: e.workflow?.settings?.fallback_email || 'ops@example.com'\n  }\n};"
+      },
+      "id": "faab8cb6-586c-4469-a3d2-7eb58771cec1",
+      "name": "Build Error Message1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "=C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=:fire: *Workflow FAILED: {{ $json.workflow_name }}*\n\n*Failed Node:* `{{ $json.failed_node }}`\n*Error Type:* {{ $json.error_type }}\n*Message:* {{ $json.error_message }}\n*Execution ID:* `{{ $json.execution_id }}`\n*Timestamp:* {{ $json.timestamp }}\n\nCheck n8n execution logs for full trace: https://your-n8n-host/executions/{{ $json.execution_id }}",
+        "otherOptions": {}
+      },
+      "id": "b02dfcb0-3675-4e02-b643-754a082ee959",
+      "name": "Slack: Error Alert1",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1424,
+        912
+      ],
+      "webhookId": "828bf6a7-c07d-4a04-a17c-9cbc6224354a",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "=sa4715228@gmail.com",
+        "subject": "=:fire: [n8n] TikTok Ads Reporter FAILED — {{ $json.failed_node }}",
+        "message": "Workflow failure alert.\n\nWorkflow: {{ $json.workflow_name }}\nFailed Node: {{ $json.failed_node }}\nError Type: {{ $json.error_type }}\nMessage: {{ $json.error_message }}\nExecution ID: {{ $json.execution_id }}\nTimestamp: {{ $json.timestamp }}\n\nCheck n8n logs for full trace.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "9e220a6b-41e1-4307-a797-ad98a693f08e",
+      "name": "Gmail: Error Alert1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1424,
+        1104
+      ],
+      "webhookId": "76da8612-0ed2-4298-b5dc-221039967a9c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bAisleZ1T5xUJKA4",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"executive_summary\": {\n      \"type\": \"string\"\n    },\n    \"trend_analysis\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"spend_trend\": { \"type\": \"string\" },\n        \"efficiency_trend\": { \"type\": \"string\" },\n        \"volume_trend\": { \"type\": \"string\" }\n      },\n      \"required\": [\"spend_trend\", \"efficiency_trend\", \"volume_trend\"]\n    },\n    \"top_performers\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"campaign_id\": { \"type\": \"string\" },\n          \"reason\": { \"type\": \"string\" },\n          \"key_metric\": { \"type\": \"string\" }\n        },\n        \"required\": [\"campaign_id\", \"reason\", \"key_metric\"]\n      }\n    },\n    \"underperformers\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"campaign_id\": { \"type\": \"string\" },\n          \"reason\": { \"type\": \"string\" },\n          \"key_metric\": { \"type\": \"string\" }\n        },\n        \"required\": [\"campaign_id\", \"reason\", \"key_metric\"]\n      }\n    },\n    \"optimization_recommendations\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" }\n    },\n    \"key_takeaways\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" }\n    }\n  },\n  \"required\": [\n    \"executive_summary\",\n    \"trend_analysis\",\n    \"top_performers\",\n    \"underperformers\",\n    \"optimization_recommendations\",\n    \"key_takeaways\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        3280,
+        816
+      ],
+      "id": "846af610-75e9-4a09-bb11-056875ceb5bc",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "iteration",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "id": "2",
+              "name": "max",
+              "type": "number",
+              "value": 3
+            },
+            {
+              "id": "3",
+              "name": "campaigns",
+              "type": "array",
+              "value": "={{ $json.campaigns }}"
+            },
+            {
+              "id": "4",
+              "name": "totalSpend",
+              "type": "number",
+              "value": "={{ $json.totalSpend }}"
+            },
+            {
+              "id": "5",
+              "name": "totalConversions",
+              "type": "number",
+              "value": "={{ $json.totalConversions }}"
+            },
+            {
+              "id": "6",
+              "name": "topPerformers",
+              "type": "array",
+              "value": "={{ $json.topPerformers }}"
+            },
+            {
+              "id": "7",
+              "name": "underPerformers",
+              "type": "array",
+              "value": "={{ $json.underPerformers }}"
+            },
+            {
+              "id": "8",
+              "name": "config",
+              "type": "object",
+              "value": "={{ $json.config }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8e56bc70-ad06-498c-87c8-76a97f16fb81",
+      "name": "Set: Init Agent Loop",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2720,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b52453da-54fa-4ab0-bb64-e11dff089454",
+      "name": "IF: Agent Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3392,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "iteration",
+              "type": "number",
+              "value": "={{ $json.iteration + 1 }}"
+            },
+            {
+              "id": "2",
+              "name": "max",
+              "type": "number",
+              "value": "={{ $json.max }}"
+            },
+            {
+              "id": "3",
+              "name": "campaigns",
+              "type": "array",
+              "value": "={{ $json.campaigns }}"
+            },
+            {
+              "id": "4",
+              "name": "totalSpend",
+              "type": "number",
+              "value": "={{ $json.totalSpend }}"
+            },
+            {
+              "id": "5",
+              "name": "totalConversions",
+              "type": "number",
+              "value": "={{ $json.totalConversions }}"
+            },
+            {
+              "id": "6",
+              "name": "topPerformers",
+              "type": "array",
+              "value": "={{ $json.topPerformers }}"
+            },
+            {
+              "id": "7",
+              "name": "underPerformers",
+              "type": "array",
+              "value": "={{ $json.underPerformers }}"
+            },
+            {
+              "id": "8",
+              "name": "config",
+              "type": "object",
+              "value": "={{ $json.config }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f37ce32e-80f1-4be4-aced-07af56395871",
+      "name": "Set: Increment Iteration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3632,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.iteration }}",
+              "rightValue": "={{ $json.max }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d6b9563d-c626-4d84-b8dd-939380ae13a3",
+      "name": "IF: Max Iterations Reached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3872,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "error_type",
+              "type": "string",
+              "value": "AI Agent Analysis Failed"
+            },
+            {
+              "id": "2",
+              "name": "error_message",
+              "type": "string",
+              "value": "={{ 'AI Agent failed after ' + $json.max + ' retry attempts. Last error: ' + JSON.stringify($json.error) }}"
+            },
+            {
+              "id": "3",
+              "name": "execution_id",
+              "type": "string",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "id": "4",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "adff748a-4f51-4d1e-a98d-7a9e755b4a93",
+      "name": "Set: Error - Agent Failure",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4368,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.pow(3, $json.iteration) * 10 }}"
+      },
+      "id": "0da53db6-3d90-40db-bf02-930776c1311e",
+      "name": "Wait: Backoff",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4128,
+        240
+      ],
+      "webhookId": "050b253a-0be6-4401-9ab3-c90a6ebe4ee2"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1f0Y4DGPDFi2xrfqCqVnn52YNRLkDAYLwXnay--k9auw",
+          "mode": "list",
+          "cachedResultName": "Tiktok practice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f0Y4DGPDFi2xrfqCqVnn52YNRLkDAYLwXnay--k9auw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "error logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f0Y4DGPDFi2xrfqCqVnn52YNRLkDAYLwXnay--k9auw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "error_type": "={{ $json.error_type }}",
+            "error_message": "={{ $json.error_message }}",
+            "execution_id": "={{ $json.execution_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "error_type",
+              "displayName": "error_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "7accdb4b-b03e-4e76-b72e-f501e4245eac",
+      "name": "Google Sheets: Log Error",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        4608,
+        208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        976,
+        1008
+      ],
+      "id": "c5d584a5-6fe2-4749-970f-8ed6c4391a1b",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "client_name",
+              "value": "=Client A (Dummy)",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "advertiser_id",
+              "value": "=7123456789012345678",
+              "type": "number"
+            },
+            {
+              "id": "a4",
+              "name": "report_period_days",
+              "value": "=7",
+              "type": "number"
+            },
+            {
+              "id": "a5",
+              "name": "slack_channel",
+              "value": "=#ads-reports-test",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "client_email",
+              "value": "=client-test@example.com",
+              "type": "string"
+            },
+            {
+              "id": "a7",
+              "name": "send_via_slack",
+              "value": "=true",
+              "type": "boolean"
+            },
+            {
+              "id": "a8",
+              "name": "send_via_email",
+              "value": "=true",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ef82f6f5-ede1-4acd-9753-f0690db62a77",
+      "name": "Set Client Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1168,
+        480
+      ],
+      "notes": "access_token removed from here on purpose. It now lives in the 'TikTok API Credential' HTTP Header Auth credential attached to the Fetch TikTok Campaign Report node, not in plain workflow data."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const days = $json.report_period_days || 7;\nconst end = new Date();\nend.setDate(end.getDate() - 1);\nconst start = new Date(end);\nstart.setDate(start.getDate() - (days - 1));\nconst fmt = (d) => d.toISOString().slice(0, 10);\nreturn {\n  json: {\n    ...$json,\n    start_date: fmt(start),\n    end_date: fmt(end),\n    request_timestamp: new Date().toISOString(),\n    advertiser_id: $json.advertiser_id\n  }\n};"
+      },
+      "id": "63d7fda5-74a0-45a3-99c4-cfe8cf348a5b",
+      "name": "Compute Date Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.code }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.data && $json.data.list && $json.data.list.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9348871b-b3c6-47e9-83d0-d017b487f91b",
+      "name": "IF API Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "model": "devstral-medium-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        2960,
+        816
+      ],
+      "id": "7f0e72c6-75ab-4dad-a010-d9655f867ae1",
+      "name": "Mistral Cloud Chat Model",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "zQNEg3zQyWYVaFox",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "advertiser_id",
+              "value": "={{ $json.advertiser_id }}"
+            },
+            {
+              "name": "report_type",
+              "value": "BASIC"
+            },
+            {
+              "name": "data_level",
+              "value": "AUCTION_CAMPAIGN"
+            },
+            {
+              "name": "dimensions",
+              "value": "[\"campaign_id\", \"stat_time_day\"]"
+            },
+            {
+              "name": "metrics",
+              "value": "[\"spend\", \"impressions\", \"clicks\", \"ctr\", \"cpc\", \"cpm\", \"conversions\", \"cost_per_conversion\", \"conversion_rate\", \"real_result\"]"
+            },
+            {
+              "name": "start_date",
+              "value": "={{ $json.start_date }}"
+            },
+            {
+              "name": "end_date",
+              "value": "={{ $json.end_date }}"
+            },
+            {
+              "name": "page",
+              "value": "1"
+            },
+            {
+              "name": "page_size",
+              "value": "200"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "9d57632f-2418-485b-8a92-8d71ac2bc2eb",
+      "name": "Fetch TikTok Campaign Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1648,
+        272
+      ],
+      "notes": "Create an HTTP Header Auth credential in n8n: Name='Access-Token', Value=<your TikTok access token>. This keeps the token out of the JSON/expressions entirely."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    \"code\": 0,\n    \"message\": \"OK\",\n    \"data\": {\n      \"list\": [\n        {\n          \"metrics\": {\n            \"spend\": \"650.00\",\n            \"impressions\": \"55000\",\n            \"clicks\": \"2200\",\n            \"conversions\": \"110\",\n            \"conversion_rate\": \"0.050\",\n            \"ctr\": \"0.040\",\n            \"cpc\": \"0.30\",\n            \"cpa\": \"5.91\"\n          },\n          \"dimensions\": {\n            \"campaign_id\": \"712345678901\",\n            \"campaign_name\": \"PK_Prospecting_Broad_July\"\n          }\n        },\n        {\n          \"metrics\": {\n            \"spend\": \"180.00\",\n            \"impressions\": \"12000\",\n            \"clicks\": \"240\",\n            \"conversions\": \"12\",\n            \"conversion_rate\": \"0.050\",\n            \"ctr\": \"0.020\",\n            \"cpc\": \"0.75\",\n            \"cpa\": \"15.00\"\n          },\n          \"dimensions\": {\n            \"campaign_id\": \"712345678902\",\n            \"campaign_name\": \"PK_Retargeting_ATC_July\"\n          }\n        },\n        {\n          \"metrics\": {\n            \"spend\": \"850.00\",\n            \"impressions\": \"78000\",\n            \"clicks\": \"3120\",\n            \"conversions\": \"195\",\n            \"conversion_rate\": \"0.062\",\n            \"ctr\": \"0.040\",\n            \"cpc\": \"0.27\",\n            \"cpa\": \"4.36\"\n          },\n          \"dimensions\": {\n            \"campaign_id\": \"712345678903\",\n            \"campaign_name\": \"PK_Scaling_LAL_July\"\n          }\n        },\n        {\n          \"metrics\": {\n            \"spend\": \"300.00\",\n            \"impressions\": \"95000\",\n            \"clicks\": \"1900\",\n            \"conversions\": \"25\",\n            \"conversion_rate\": \"0.013\",\n            \"ctr\": \"0.020\",\n            \"cpc\": \"0.16\",\n            \"cpa\": \"12.00\"\n          },\n          \"dimensions\": {\n            \"campaign_id\": \"712345678904\",\n            \"campaign_name\": \"PK_Video_Views_Brand_July\"\n          }\n        },\n        {\n          \"metrics\": {\n            \"spend\": \"450.00\",\n            \"impressions\": \"40000\",\n            \"clicks\": \"1600\",\n            \"conversions\": \"90\",\n            \"conversion_rate\": \"0.056\",\n            \"ctr\": \"0.040\",\n            \"cpc\": \"0.28\",\n            \"cpa\": \"5.00\"\n          },\n          \"dimensions\": {\n            \"campaign_id\": \"712345678905\",\n            \"campaign_name\": \"PK_Catalog_Sales_DPA_July\"\n          }\n        }\n      ]\n    }\n  }\n};"
+      },
+      "id": "122d45a7-c09f-4844-acda-db3b1755aa85",
+      "name": "Fetch TikTok Campaign Report Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=:rotating_light: *TikTok Ads Report FAILED* — API Error\n\n*Client:* {{ $('Set Client Config').first().json.client_name }}\n*Error Code:* {{ $json.code }}\n*Message:* {{ $json.message }}\n*Timestamp:* {{ $now.toISO() }}\n*Execution:* {{ $execution.id }}\n\nCheck API credentials, advertiser_id, or rate limits.",
+        "otherOptions": {}
+      },
+      "id": "018f651d-caf1-49df-b061-4711069a4033",
+      "name": "Slack: API Failure Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1920,
+        720
+      ],
+      "webhookId": "34563b1c-5c09-46bd-acdf-f6c0687eee49",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const rows = $json.data?.list || [];\nconst totals = { spend: 0, impressions: 0, clicks: 0, conversions: 0, real_result: 0 };\nconst campaigns = [];\n\nfor (const r of rows) {\n  const d = r.dimensions || {};\n  const m = r.metrics || {};\n  const spend = Number(m.spend || 0);\n  const impressions = Number(m.impressions || 0);\n  const clicks = Number(m.clicks || 0);\n  const conversions = Number(m.conversions || 0);\n  const realResult = Number(m.real_result || 0);\n\n  totals.spend += spend;\n  totals.impressions += impressions;\n  totals.clicks += clicks;\n  totals.conversions += conversions;\n  totals.real_result += realResult;\n\n  campaigns.push({\n    campaign_id: d.campaign_id,\n    date: d.stat_time_day,\n    spend: +spend.toFixed(2),\n    impressions,\n    clicks,\n    ctr: m.ctr ? Number(m.ctr) : (impressions > 0 ? +(clicks / impressions * 100).toFixed(2) : 0),\n    cpc: m.cpc ? Number(m.cpc) : (clicks > 0 ? +(spend / clicks).toFixed(2) : 0),\n    cpm: impressions > 0 ? +((spend / impressions) * 1000).toFixed(2) : 0,\n    conversions,\n    cost_per_conversion: conversions > 0 ? +(spend / conversions).toFixed(2) : 0,\n    conversion_rate: m.conversion_rate ? Number(m.conversion_rate) : (clicks > 0 ? +(conversions / clicks * 100).toFixed(2) : 0),\n    roas: realResult > 0 ? +(realResult / spend).toFixed(2) : 0,\n    real_result: realResult\n  });\n}\n\nconst totalCtr = totals.impressions > 0 ? +(totals.clicks / totals.impressions * 100).toFixed(2) : 0;\nconst totalCpc = totals.clicks > 0 ? +(totals.spend / totals.clicks).toFixed(2) : 0;\nconst totalCvr = totals.clicks > 0 ? +(totals.conversions / totals.clicks * 100).toFixed(2) : 0;\nconst overallRoas = totals.spend > 0 ? +(totals.real_result / totals.spend).toFixed(2) : 0;\nconst totalCpi = totals.conversions > 0 ? +(totals.spend / totals.conversions).toFixed(2) : 0;\n\nreturn {\n  json: {\n    client_name: $('Set Client Config').first().json.client_name,\n    advertiser_id: $('Set Client Config').first().json.advertiser_id,\n    start_date: $json.start_date,\n    end_date: $json.end_date,\n    request_timestamp: $json.request_timestamp,\n    campaign_count: campaigns.length,\n    summary: {\n      total_spend: +totals.spend.toFixed(2),\n      total_impressions: totals.impressions,\n      total_clicks: totals.clicks,\n      total_conversions: totals.conversions,\n      total_real_result: totals.real_result,\n      avg_ctr: totalCtr,\n      avg_cpc: totalCpc,\n      avg_conversion_rate: totalCvr,\n      avg_cpi: totalCpi,\n      overall_roas: overallRoas\n    },\n    campaigns,\n    data_quality: {\n      has_data: campaigns.length > 0,\n      missing_metrics: []\n    }\n  }\n};"
+      },
+      "id": "93f52799-d237-40b8-b737-0d2f97ab98f1",
+      "name": "Parse & Extract Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "log1",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "log2",
+              "name": "execution_id",
+              "value": "={{ $execution.id }}",
+              "type": "string"
+            },
+            {
+              "id": "log3",
+              "name": "completed_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "log4",
+              "name": "client",
+              "value": "={{ $('Format Final Report').item.json.client_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1f62da4a-85d9-4cb7-9051-777dd9c2d486",
+      "name": "Workflow Success Log",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4064,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "=C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "={{ $json.slack_message }}",
+        "otherOptions": {}
+      },
+      "id": "3a6ef4f6-69df-4596-a9e7-8ad068904faa",
+      "name": "Send Slack Report",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        3808,
+        464
+      ],
+      "webhookId": "9aa3aab8-6a96-4faf-b3dd-734e45716239",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const cfg = $('Set Client Config').first().json;\nconst src = $('Parse & Extract Metrics').first().json;\n// AI Agent with Structured Output Parser wraps parsed JSON in $json.output\nconst ai = $json.output || $json;\n\nconst s = src.summary;\nconst fmt = (n) => Number(n || 0).toLocaleString('en-US');\nconst usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\nconst pct = (n) => `${Number(n || 0).toFixed(2)}%`;\n\n// FIX: previously had nested un-escaped backticks inside this template literal\n// (`• `${c.campaign_id}` — ...`) which is a JS syntax error and crashes this node.\n// Backticks inside a template literal must be escaped with \\` if you want literal\n// backtick characters (e.g. for Slack inline-code formatting).\nconst slackBlocks = [\n  `:bar_chart: *TikTok Ads Performance Report — ${cfg.client_name}*`,\n  `*Period:* ${src.start_date} → ${src.end_date}  |  *Campaigns:* ${src.campaign_count}`,\n  ``,\n  `:moneybag: *Key Metrics*`,\n  `• Spend: ${usd(s.total_spend)}`,\n  `• Impressions: ${fmt(s.total_impressions)}`,\n  `• Clicks: ${fmt(s.total_clicks)}  (CTR: ${pct(s.avg_ctr)})`,\n  `• Conversions: ${fmt(s.total_conversions)}  (CVR: ${pct(s.avg_conversion_rate)})`,\n  `• CPI / Cost per Conversion: ${usd(s.avg_cpi)}`,\n  `• ROAS: ${s.overall_roas}x`,\n  ``,\n  `:brain: *AI Analysis*`,\n  ai.executive_summary || 'No analysis available.',\n  ``,\n  `:chart_with_upwards_trend: *Trends*`,\n  `• Spend: ${ai.trend_analysis?.spend_trend || 'N/A'}`,\n  `• Efficiency: ${ai.trend_analysis?.efficiency_trend || 'N/A'}`,\n  `• Volume: ${ai.trend_analysis?.volume_trend || 'N/A'}`,\n  ``,\n  `:trophy: *Top Performers*`,\n  ...(ai.top_performers || []).map((c) => `• \\`${c.campaign_id}\\` — ${c.reason} _(metric: ${c.key_metric})_`),\n  ``,\n  `:warning: *Underperformers*`,\n  ...(ai.underperformers || []).map((c) => `• \\`${c.campaign_id}\\` — ${c.reason} _(metric: ${c.key_metric})_`),\n  ``,\n  `:bulb: *Optimization Recommendations*`,\n  ...(ai.optimization_recommendations || []).map((r, i) => `${i + 1}. ${r}`),\n  ``,\n  `:pushpin: *Key Takeaways*`,\n  ...(ai.key_takeaways || []).map((t) => `• ${t}`),\n  ``,\n  `_Full report sent via email. Generated at ${new Date().toISOString()}_`\n].join('\\n');\n\nconst emailHtml = `\n<!DOCTYPE html><html><body style=\"font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:680px;margin:auto;padding:20px;color:#222;\">\n<h1 style=\"color:#fe2c55;\">TikTok Ads Performance Report</h1>\n<h2>${cfg.client_name}</h2>\n<p><strong>Period:</strong> ${src.start_date} → ${src.end_date} &nbsp;|&nbsp; <strong>Campaigns:</strong> ${src.campaign_count}</p>\n\n<h3 style=\"border-bottom:2px solid #fe2c55;padding-bottom:4px;\">Key Metrics</h3>\n<table style=\"width:100%;border-collapse:collapse;\">\n  <tr><td><b>Total Spend</b></td><td>${usd(s.total_spend)}</td></tr>\n  <tr><td><b>Impressions</b></td><td>${fmt(s.total_impressions)}</td></tr>\n  <tr><td><b>Clicks</b></td><td>${fmt(s.total_clicks)} (CTR: ${pct(s.avg_ctr)})</td></tr>\n  <tr><td><b>Conversions</b></td><td>${fmt(s.total_conversions)} (CVR: ${pct(s.avg_conversion_rate)})</td></tr>\n  <tr><td><b>CPI / Cost per Conversion</b></td><td>${usd(s.avg_cpi)}</td></tr>\n  <tr><td><b>ROAS</b></td><td><span style=\"font-size:18px;color:#fe2c55;\"><b>${s.overall_roas}x</b></span></td></tr>\n</table>\n\n<h3 style=\"border-bottom:2px solid #fe2c55;padding-bottom:4px;\">AI Executive Summary</h3>\n<p>${ai.executive_summary || 'N/A'}</p>\n\n<h3 style=\"border-bottom:2px solid #fe2c55;padding-bottom:4px;\">Trend Analysis</h3>\n<ul>\n  <li><b>Spend:</b> ${ai.trend_analysis?.spend_trend || 'N/A'}</li>\n  <li><b>Efficiency:</b> ${ai.trend_analysis?.efficiency_trend || 'N/A'}</li>\n  <li><b>Volume:</b> ${ai.trend_analysis?.volume_trend || 'N/A'}</li>\n</ul>\n\n<h3 style=\"border-bottom:2px solid #fe2c55;padding-bottom:4px;\">Top Performers</h3>\n<ul>${(ai.top_performers || []).map((c) => `<li><code>${c.campaign_id}</code> — ${c.reason} <i>(${c.key_metric})</i></li>`).join('')}</ul>\n\n<h3 style=\"border-bottom:2px solid #fe2c55;padding-bottom:4px;\">Underperformers</h3>\n<ul>${(ai.underperformers || []).map((c) => `<li><code>${c.campaign_id}</code> — ${c.reason} <i>(${c.key_metric})</i></li>`).join('')}</ul>\n\n<h3 style=\"border-bottom:2px solid #fe2c55;padding-bottom:4px;\">Optimization Recommendations</h3>\n<ol>${(ai.optimization_recommendations || []).map((r) => `<li>${r}</li>`).join('')}</ol>\n\n<h3 style=\"border-bottom:2px solid #fe2c55;padding-bottom:4px;\">Key Takeaways</h3>\n<ul>${(ai.key_takeaways || []).map((t) => `<li>${t}</li>`).join('')}</ul>\n\n<hr>\n<p style=\"color:#888;font-size:12px;\">Generated ${new Date().toISOString()} | Workflow: TikTok Ads Reporter | Execution ${cfg.execution_id || ''}</p>\n</body></html>`;\n\nreturn {\n  json: {\n    ...src,\n    ai_analysis: ai,\n    slack_message: slackBlocks,\n    email_subject: `TikTok Ads Report — ${cfg.client_name} (${src.start_date} → ${src.end_date})`,\n    email_html: emailHtml,\n    send_via_slack: cfg.send_via_slack,\n    send_via_email: cfg.send_via_email,\n    client_email: cfg.client_email,\n    slack_channel: cfg.slack_channel,\n    client_name: cfg.client_name\n  }\n};"
+      },
+      "id": "7423ccc7-d9a3-4670-9957-72ee8cfdd393",
+      "name": "Format Final Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1f0Y4DGPDFi2xrfqCqVnn52YNRLkDAYLwXnay--k9auw",
+          "mode": "list",
+          "cachedResultName": "Tiktok practice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f0Y4DGPDFi2xrfqCqVnn52YNRLkDAYLwXnay--k9auw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 830924966,
+          "mode": "list",
+          "cachedResultName": "success log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f0Y4DGPDFi2xrfqCqVnn52YNRLkDAYLwXnay--k9auw/edit#gid=830924966"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "execution_id": "={{ $json.execution_id }}",
+            "status": "={{ $json.status }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "client": "={{ $json.client }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "client",
+              "displayName": "client",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "046c43e6-30d1-4496-a807-010ddefb198c",
+      "name": "Google Sheets: Log Success",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        4288,
+        464
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        3120,
+        816
+      ],
+      "id": "8d9923d9-b2dc-4112-a059-8b6d73a8fa4c",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "pkykCzfj5RPowR5G",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen schedule triggers at 9am weekdays, this workflow creates TikTok Ads report:\n\n1. Load client config and compute date range\n2. Fetch TikTok campaign data via API and mock code\n3. Validate response and aggregate metrics\n4. Check data completeness and alert if empty\n5. Init agent loop and run AI analysis with structured parser\n6. Handle AI errors with retry, backoff and max check\n7. Format Slack and email reports with $ metrics\n8. Send Slack report, log success, and handle failures via Slack Gmail and Sheets",
+        "height": 472,
+        "width": 380,
+        "color": 3
+      },
+      "id": "715f29af-b7b6-4c70-a18e-615688655722",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        336,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "=C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=:warning: *TikTok Ads Report — Incomplete Data*\n\n*Client:* {{ $('Set Client Config').first().json.client_name }}\n*Date Range:* {{ $json.start_date }} to {{ $json.end_date }}\n*Campaigns Returned:* {{ $json.campaign_count }}\n*Total Spend:* ${{ $json.summary.total_spend }}\n\nData is empty or incomplete. Skipping AI analysis. Please verify the campaign setup.",
+        "otherOptions": {}
+      },
+      "id": "8f75e41f-c4bd-4a67-bca3-b7aa73e339a1",
+      "name": "Slack: Incomplete Data Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2464,
+        720
+      ],
+      "webhookId": "7333a5fb-abb2-4466-b4da-7a9859d4df3e",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Note Title\nCanvas title sticky for organization\n\n2. Schedule Trigger1\nRuns at 9am Mon to Fri via cron\n\n3. IF Data Complete1\nChecks total spend and campaign count greater than zero\n\n4. Slack Incomplete Data Alert1\nSends warning for empty data to Slack channel\n\n5. AI Agent Analyze Performance1\nAnalyzes metrics with system prompt for strategic report\n\n6. Build Error Message1\nBuilds error object from execution context\n\n7. Slack Error Alert1\nPosts workflow failure details to Slack\n\n8. Gmail Error Alert1\nSends failure email to ops address\n\n9. Structured Output Parser1\nEnforces JSON schema for AI output\n\n10. Set Init Agent Loop\nSets iteration zero max three and carries metrics\n\n11. IF Agent Error\nChecks if AI output has error field\n\n12. Set Increment Iteration\nAdds one to iteration counter\n\n13. IF Max Iterations Reached\nChecks iteration greater or equal to max\n\n14. Set Error Agent Failure\nCreates final failure payload after retries\n\n15. Wait Backoff\nWaits exponential time 3 power iteration times 10\n\n16. Google Sheets Log Error\nAppends error to error logs sheet\n\n17. Error Trigger\nStarts error flow on any workflow error\n\n18. Set Client Config\nDefines client name advertiser id period and channels\n\n19. Compute Date Range\nCalculates start and end ISO dates from period days\n\n20. IF API Success\nChecks code zero and list length greater than zero\n\n21. Mistral Cloud Chat Model\nProvides Mistral model to AI Agent\n\n22. Fetch TikTok Campaign Report\nCalls TikTok business API with auth header\n\n23. Fetch TikTok Campaign Report Code\nReturns 3-campaign structured JSON object for testing (Fixed Object-return error)\n\n24. Slack API Failure Alert\nSends API error alert to Slack channel #all-first (C0B49NSVBRC)\n\n25. Parse and Extract Metrics\nAggregates totals and computes CTR CPC ROAS\n\n26. Workflow Success Log\nPrepares success metadata\n\n27. Send Slack Report\nSends formatted Slack message\n\n28. Format Final Report\nBuilds Slack blocks and HTML email with $ amounts\n\n29. Google Sheets Log Success\nAppends actual campaign performance data (spend, clicks, impressions) to success log sheet\n\n30. Google Gemini Chat Model\nProvides Gemini model to AI Agent",
+        "height": 1540,
+        "width": 472,
+        "color": 2
+      },
+      "id": "72e9f892-4758-4407-aa1d-89a269f477e8",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4896,
+        -112
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Set Client Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Data Complete1": {
+      "main": [
+        [
+          {
+            "node": "Set: Init Agent Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack: Incomplete Data Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Analyze Performance1": {
+      "main": [
+        [
+          {
+            "node": "IF: Agent Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error Message1": {
+      "main": [
+        [
+          {
+            "node": "Slack: Error Alert1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail: Error Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: Increment Iteration": {
+      "main": [
+        [
+          {
+            "node": "IF: Max Iterations Reached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Max Iterations Reached?": {
+      "main": [
+        [
+          {
+            "node": "Set: Error - Agent Failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait: Backoff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: Init Agent Loop": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Agent Error?": {
+      "main": [
+        [
+          {
+            "node": "Set: Increment Iteration",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Final Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait: Backoff": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: Error - Agent Failure": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Error Message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Client Config": {
+      "main": [
+        [
+          {
+            "node": "Compute Date Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Date Range": {
+      "main": [
+        [
+          {
+            "node": "Fetch TikTok Campaign Report Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF API Success": {
+      "main": [
+        [
+          {
+            "node": "Parse & Extract Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack: API Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch TikTok Campaign Report": {
+      "main": [
+        []
+      ]
+    },
+    "Fetch TikTok Campaign Report Code": {
+      "main": [
+        [
+          {
+            "node": "IF API Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Extract Metrics": {
+      "main": [
+        [
+          {
+            "node": "IF Data Complete1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Report": {
+      "main": [
+        [
+          {
+            "node": "Workflow Success Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Report": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Success Log": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance1",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "cfe77e23-b590-4073-a5bb-427eeaee10bd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c5a5331973f441bde5fa004c1414d85455f24ba4151b34b9b3d4606cccd4ae0f"
+  },
+  "nodeGroups": [],
+  "id": "FYHvbmnzdDls5fOh",
+  "tags": []
+}
