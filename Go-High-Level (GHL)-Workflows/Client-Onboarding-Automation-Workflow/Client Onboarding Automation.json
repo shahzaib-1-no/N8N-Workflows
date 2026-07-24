@@ -1,0 +1,1573 @@
+{
+  "name": "Client Onboarding Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "closed-won",
+        "options": {}
+      },
+      "id": "d9aa275d-3490-4559-a4fc-588dbedf7913",
+      "name": "GHL Deal closed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -2032,
+        5456
+      ],
+      "webhookId": "e49a8ec3-300c-49e7-8592-504620a98489"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-status",
+              "leftValue": "={{ $json.body.status }}",
+              "rightValue": "won",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "85febf58-ca30-43c2-94cf-dd2b2c28d6a4",
+      "name": "IF Won Status1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1728,
+        5456
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=🚀 New Deal Won & Contract Dispatched!  • Client Name: {{ $json.body.full_name }} • phone: {{ $json.body.phone }} • Status: Deal is closed won and the contract has been dispatched to the client!",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        -1456,
+        5440
+      ],
+      "id": "ee800785-e51c-4b84-8bd8-73a85b4a39f4",
+      "name": "Contract Sent Alert",
+      "webhookId": "9ea0fb8e-3b85-4809-b1c9-4880f4ad587c",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA",
+          "mode": "list",
+          "cachedResultName": "sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "contact_id": "={{ $('GHL Deal closed').item.json.body.contact_id }}",
+            "full_name": "={{ $('GHL Deal closed').item.json.body.first_name }}",
+            "phone": "={{ $('GHL Deal closed').item.json.body.phone }}",
+            "company_name": "={{ $('GHL Deal closed').item.json.body.company_name }}",
+            "full_address": "={{ $('GHL Deal closed').item.json.body.full_address }}",
+            "contact_type": "={{ $('GHL Deal closed').item.json.body.contact_type }}",
+            "opportunity_name": "={{ $('GHL Deal closed').item.json.body.opportunity_name }}",
+            "pipleline_stage": "={{ $('GHL Deal closed').item.json.body.pipleline_stage }}",
+            "pipeline_name": "={{ $('GHL Deal closed').item.json.body.pipeline_name }}",
+            "contract_signed": "pending",
+            "follow_up_counts": "0",
+            "contract_check": "pending",
+            "start_date": "={{ $now.toFormat('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "contact_id",
+              "displayName": "contact_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_address",
+              "displayName": "full_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_type",
+              "displayName": "contact_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "opportunity_name",
+              "displayName": "opportunity_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pipleline_stage",
+              "displayName": "pipleline_stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pipeline_name",
+              "displayName": "pipeline_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contract_signed",
+              "displayName": "contract_signed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "follow_up_counts",
+              "displayName": "follow_up_counts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "start_date",
+              "displayName": "start_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "contract_check",
+              "displayName": "contract_check",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1216,
+        5440
+      ],
+      "id": "63a42562-fb6b-400d-9b72-cdb50a143330",
+      "name": "Add Client Record",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        5440
+      ],
+      "id": "93e5e7a4-63a2-49e4-a797-a76c029b7745",
+      "name": "Process Complete"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -2000,
+        5936
+      ],
+      "id": "42481ff9-b6a4-4069-8e7e-0964f095fd27",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA",
+          "mode": "list",
+          "cachedResultName": "sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "contract_signed",
+              "lookupValue": "pending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1792,
+        5936
+      ],
+      "id": "155f475d-0b5e-4a04-9c20-8853f60bd7c5",
+      "name": "Check Pending Contracts",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst outputItems = [];\nconst now = new Date();\n\nfor (const item of items) {\n  const startDate = new Date(item.json.start_date);\n  \n  // Hours ka farq calculate karna aur whole number banana\n  const diffMs = now - startDate;\n  const diffHours = diffMs / (1000 * 60 * 60);\n\n  outputItems.push({\n    json: {\n      ...item.json,\n      hoursPassed: Math.floor(diffHours)\n    }\n  });\n}\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1584,
+        5936
+      ],
+      "id": "650998fc-596f-4087-8351-13a71152a6e6",
+      "name": "Calculate Hours Passed"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.hoursPassed }}",
+                    "rightValue": 48,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    },
+                    "id": "c343fa5b-0a23-43eb-b9b9-9fa6c4581af8"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "80363ba8-ec6e-45fe-a5cf-88ef1c715fc8",
+                    "leftValue": "={{ $json.hoursPassed }}",
+                    "rightValue": 24,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1ebb334f-7d9e-4286-ac15-510ba80ecf94",
+                    "leftValue": "={{ $json.hoursPassed }}",
+                    "rightValue": 24,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1360,
+        5920
+      ],
+      "id": "205b112d-77ad-4983-b02a-09d5929c2912",
+      "name": "Check Reminder Stage"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "Action Required: Pending Contract & Let's Schedule a Quick Call",
+        "message": "=<p>Hi {{ $json.name || 'Client' }},</p>  <p>We noticed that you haven't signed your contract yet. We want to ensure everything is clear and help you get started smoothly.</p>  <p>Tomorrow, we would love for you to have a quick 1:1 chat with our representative to clear up any doubts or questions you might have regarding the agreement or our services.</p>  <p>Please reply to this email with your preferred time tomorrow so we can schedule the call for you.</p>  <p>Best regards,<br> <strong>Your Team</strong></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        5744
+      ],
+      "id": "6eb7f5eb-7b33-4f31-9986-bfb7a5bdfa82",
+      "name": "Send 48h Reminder",
+      "webhookId": "bf55e580-c9a8-4eb9-b655-76a580d6069d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bAisleZ1T5xUJKA4",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=🚨 *Urgent: Client Contract Pending (48h Reminder)*  Hi Team, the following client has not signed their contract even after 48 hours:  • *Client Name:* {{ $('Check Reminder Stage').item.json.full_name }} • *Email:* {{ $('Check Reminder Stage').item.json.email }} • *Hours Elapsed:* {{ $('Calculate Hours Passed').item.json.hoursPassed }} hours  Our representative needs to reach out for a 1:1 call to help clear up any doubts or questions. Please take action!",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        -864,
+        5744
+      ],
+      "id": "967039c7-8561-43d7-9f5a-b92973fe7cc5",
+      "name": "Slack - Notify Contract Still Unsigned",
+      "webhookId": "53c1a346-dc0d-44d5-bdc4-81ffdf473cf4",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA",
+          "mode": "list",
+          "cachedResultName": "sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "follow_up_counts": "2",
+            "contact_id": "={{ $('Check Reminder Stage').item.json.contact_id }}"
+          },
+          "matchingColumns": [
+            "contact_id"
+          ],
+          "schema": [
+            {
+              "id": "contact_id",
+              "displayName": "contact_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "full_address",
+              "displayName": "full_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contact_type",
+              "displayName": "contact_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "opportunity_name",
+              "displayName": "opportunity_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "pipleline_stage",
+              "displayName": "pipleline_stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "pipeline_name",
+              "displayName": "pipeline_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contract_signed",
+              "displayName": "contract_signed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "follow_up_counts",
+              "displayName": "follow_up_counts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "start_date",
+              "displayName": "start_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contract_check",
+              "displayName": "contract_check",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -656,
+        5744
+      ],
+      "id": "5952983d-e2ef-4169-af7f-95a09dc047e9",
+      "name": "Append 48h Follow-up Record",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "Quick check-in regarding your onboarding contract",
+        "message": "=<p>Hi {{ $json.name || 'Client' }},</p>\n\n<p>I hope you're having a great week!</p>\n\n<p>We recently sent over your client onboarding agreement, but it looks like it hasn't been signed just yet. We just wanted to drop a quick note to see if you had any questions or if you ran into any issues while reviewing it.</p>\n\n<p>Whenever you're ready, you can complete it through the link we shared earlier. If you'd like us to resend the link or if you need any help, just reply right here—we're always happy to assist!</p>\n\n<p>Best regards,<br>\n<strong>Your Team</strong></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        5936
+      ],
+      "id": "78cf2293-4a27-45a9-b7a1-c8337145cb54",
+      "name": "Send 24h Reminder",
+      "webhookId": "bf55e580-c9a8-4eb9-b655-76a580d6069d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bAisleZ1T5xUJKA4",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        5744
+      ],
+      "id": "fe25d0a0-a87e-47c7-8bab-94086fb8c82e",
+      "name": "Process Complete1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        5936
+      ],
+      "id": "7f26066d-b6fe-4dd7-9904-5eb2b68864d8",
+      "name": "Process Complete2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA",
+          "mode": "list",
+          "cachedResultName": "sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "follow_up_counts": "1",
+            "contact_id": "={{ $('Check Reminder Stage').item.json.contact_id }}"
+          },
+          "matchingColumns": [
+            "contact_id"
+          ],
+          "schema": [
+            {
+              "id": "contact_id",
+              "displayName": "contact_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "full_address",
+              "displayName": "full_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contact_type",
+              "displayName": "contact_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "opportunity_name",
+              "displayName": "opportunity_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "pipleline_stage",
+              "displayName": "pipleline_stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "pipeline_name",
+              "displayName": "pipeline_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contract_signed",
+              "displayName": "contract_signed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "follow_up_counts",
+              "displayName": "follow_up_counts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "start_date",
+              "displayName": "start_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contract_check",
+              "displayName": "contract_check",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -864,
+        5936
+      ],
+      "id": "85d19e5c-2d89-4141-9c74-0459f1265fde",
+      "name": "Append 24h Follow-up Record",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=⚠️ *Alert: Client Follow-up Check*  • *Client Name:* {{ $json.name }} • *Email:* {{ $json.email }} • *Current Hours Passed:* {{ $json.hoursPassed }} hours  This client is in the fallback/review queue. Please check their contract status manually if needed.",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        -1040,
+        6128
+      ],
+      "id": "5f1ade12-e33a-4874-834e-4c82eccf9ac6",
+      "name": "Notify Stalled Queue",
+      "webhookId": "75cf7fed-dbc5-46f7-a0e7-05aadae86ab8",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -864,
+        6128
+      ],
+      "id": "9e91d17c-c096-488a-8bb9-23e6594c26d7",
+      "name": "Process Complete3"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA",
+          "mode": "list",
+          "cachedResultName": "sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SaHvNQhfT6j-3G80VaeZDbvvelFdT5wYEEs5FNvgPJA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "contract_check": "completed",
+            "contact_id": "={{ $json.body.contact_id }}",
+            "contract_signed": "completed"
+          },
+          "matchingColumns": [
+            "contact_id"
+          ],
+          "schema": [
+            {
+              "id": "contact_id",
+              "displayName": "contact_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "full_address",
+              "displayName": "full_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contact_type",
+              "displayName": "contact_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "opportunity_name",
+              "displayName": "opportunity_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "pipleline_stage",
+              "displayName": "pipleline_stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "pipeline_name",
+              "displayName": "pipeline_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contract_signed",
+              "displayName": "contract_signed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "follow_up_counts",
+              "displayName": "follow_up_counts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "start_date",
+              "displayName": "start_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "contract_check",
+              "displayName": "contract_check",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1760,
+        6400
+      ],
+      "id": "ab55e7eb-7ba6-4c98-927e-03e5c5f0980a",
+      "name": "Check Signed Contract",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ebe23f8a-6405-41cd-a7d8-f486e37ec67c",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2000,
+        6400
+      ],
+      "id": "0a4f98c4-e4db-4e55-9dea-09fcff276036",
+      "name": "Triggered contract signed",
+      "webhookId": "ebe23f8a-6405-41cd-a7d8-f486e37ec67c"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Triggered contract signed').item.json.body.email }}",
+        "subject": "Welcome aboard! Let's get started ",
+        "message": "=<p>Hi {{ $json.name || 'Valued Client' }},</p>  <p>Thank you for signing the contract! We are thrilled to officially welcome you on board.</p>  <p>Our team is all set to kick off your project. Behind the scenes, we have set up your dedicated folders and notified our internal team so we can hit the ground running.</p>  <p>If you have any questions or need anything at all in the meantime, just reply directly to this email—we are always here to help.</p>  <p>Best regards,<br> <strong>Your Team</strong></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1552,
+        6400
+      ],
+      "id": "8d6e671e-33f3-419b-95b5-68247ffe8207",
+      "name": "Send Welcome Email to Client",
+      "webhookId": "185559d3-134e-488e-89b6-bb7a12a5c10a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bAisleZ1T5xUJKA4",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=🚀 *Contract Signed & Ready to Start!*  • *Client Name:* {{ $json.name }} • *Email:* {{ $json.email }} • *Status:* Signed & Verified ✅  The client has signed the contract! Google Drive folders have been created and the welcome email has been sent. Team, please go ahead and start working on this project!",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        -1344,
+        6400
+      ],
+      "id": "50e4f5a2-17cb-4843-9f65-0520e2cf656c",
+      "name": "Notify Team to Start Work",
+      "webhookId": "1637c089-ec49-4c3f-a73d-5112d38ad734",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1136,
+        6400
+      ],
+      "id": "c8c90a9b-8681-48bd-9b6a-3ecaea43a393",
+      "name": "Process Complete4"
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen the GHL deal closed webhook is triggered, this workflow handles the won deal path:\n\n1. Receives a POST webhook at closed-won\n2. Checks whether the deal status equals won\n3. Sends a Slack alert with client details\n4. Appends a new client record to Google Sheets\n5. Ends the workflow cleanly",
+        "height": 344,
+        "width": 364,
+        "color": 3
+      },
+      "id": "d7291ac7-4e5c-4b28-b8a4-ddd7c929f733",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2464,
+        5328
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. GHL Deal closed\nReceives a POST webhook at closed-won get client detail and GHL Send contract to client.\n\n2. IF Won Status1\nContinues only when the deal status equals won.\n\n3. Contract Sent Alert\nPosts a Slack alert with client name, phone, and deal status.\n\n4. Add Client Record\nAppends the client details into Google Sheets and sets tracking fields.\n\n5. Process Complete\nEnds the workflow after the record is saved.",
+        "height": 356,
+        "width": 520,
+        "color": 2
+      },
+      "id": "acbf1d39-95cd-4363-aeec-92c26139157d",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        5232
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen the schedule trigger runs, this workflow checks pending contracts and sends the right reminder:\n\n1. Finds rows with pending contract_signed values\n2. Calculates how many hours have passed\n3. Sends a 48-hour or 24-hour reminder, or routes to the stalled queue",
+        "height": 280,
+        "width": 380,
+        "color": 3
+      },
+      "id": "68b85682-ac23-433b-bc7e-1ba30a5ada40",
+      "name": "Note: Overview1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2464,
+        5888
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Schedule Trigger\nRuns every 2 seconds.\n\n2. Check Pending Contracts\nReads Sheet1 in the Google Sheet and filters rows where contract_signed is pending.\n\n3. Calculate Hours Passed\nCalculates how many whole hours have passed since start_date.\n\n4. Check Reminder Stage\nSends items into the 48-hour reminder, 24-hour reminder, or stalled queue path based on hoursPassed.\n\n5. Send 48h Reminder\nSends a Gmail message asking the client to schedule a quick call about the unsigned contract.\n\n6. Slack - Notify Contract Still Unsigned\nPosts a Slack alert to the team that the contract is still unsigned after 48 hours.\n\n7. Append 48h Follow-up Record\nUpdates the sheet and sets follow_up_counts to 2.\n\n8. Send 24h Reminder\nSends a Gmail check-in email about the onboarding contract.\n\n9. Append 24h Follow-up Record\nUpdates the sheet and sets follow_up_counts to 1.\n\n10. Notify Stalled Queue\nPosts a Slack alert for manual review when the item falls into the fallback queue.\n\n11. Process Complete1\nEnds the 48-hour path.\n\n12. Process Complete2\nEnds the 24-hour path.\n\n13. Process Complete3\nEnds the stalled queue path.",
+        "height": 804,
+        "width": 488,
+        "color": 2
+      },
+      "id": "a96dbffb-87cb-4a30-a588-801527b2103b",
+      "name": "Note: Node-by-node1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        5600
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen the contract signed webhook is triggered, this workflow handles the onboarding handoff:\n\n1. Receives a POST webhook at the signed contract endpoint\n2. Updates the matching Google Sheets row to completed\n3. Sends a welcome email to the client\n4. Posts a Slack alert so the team can start work",
+        "height": 328,
+        "width": 300,
+        "color": 3
+      },
+      "id": "06c4e20c-ae8e-4e48-8d0f-f1fe230bca93",
+      "name": "Note: Overview2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2416,
+        6288
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Triggered contract signed\nReceives the signed contract webhook.\n\n2. Check Signed Contract\nUpdates the Google Sheet row and marks contract_check and contract_signed as completed.\n\n3. Send Welcome Email to Client\nSends a welcome email to the client after the contract is signed.\n\n4. Notify Team to Start Work\nPosts a Slack alert so the team can begin the project.\n\n5. Process Complete4\nEnds the workflow after the notification is sent.",
+        "height": 388,
+        "width": 408,
+        "color": 2
+      },
+      "id": "f27e1a18-3efa-4de9-a429-3053efba8e61",
+      "name": "Note: Node-by-node2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        6320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Client Onboarding Automation ",
+        "height": 80,
+        "width": 328,
+        "color": 4
+      },
+      "id": "903e5fa8-2f19-4883-a1e9-49c581b08dbd",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1648,
+        5296
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "GHL Deal closed": {
+      "main": [
+        [
+          {
+            "node": "IF Won Status1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Won Status1": {
+      "main": [
+        [
+          {
+            "node": "Contract Sent Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contract Sent Alert": {
+      "main": [
+        [
+          {
+            "node": "Add Client Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Client Record": {
+      "main": [
+        [
+          {
+            "node": "Process Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check Pending Contracts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Pending Contracts": {
+      "main": [
+        [
+          {
+            "node": "Calculate Hours Passed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Hours Passed": {
+      "main": [
+        [
+          {
+            "node": "Check Reminder Stage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Reminder Stage": {
+      "main": [
+        [
+          {
+            "node": "Send 48h Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send 24h Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "Notify Stalled Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send 48h Reminder": {
+      "main": [
+        [
+          {
+            "node": "Slack - Notify Contract Still Unsigned",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack - Notify Contract Still Unsigned": {
+      "main": [
+        [
+          {
+            "node": "Append 48h Follow-up Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append 48h Follow-up Record": {
+      "main": [
+        [
+          {
+            "node": "Process Complete1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send 24h Reminder": {
+      "main": [
+        [
+          {
+            "node": "Append 24h Follow-up Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append 24h Follow-up Record": {
+      "main": [
+        [
+          {
+            "node": "Process Complete2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Stalled Queue": {
+      "main": [
+        [
+          {
+            "node": "Process Complete3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Triggered contract signed": {
+      "main": [
+        [
+          {
+            "node": "Check Signed Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Signed Contract": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email to Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Welcome Email to Client": {
+      "main": [
+        [
+          {
+            "node": "Notify Team to Start Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Team to Start Work": {
+      "main": [
+        [
+          {
+            "node": "Process Complete4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "5c08b36e-593a-4555-a199-329154a32c9d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c5a5331973f441bde5fa004c1414d85455f24ba4151b34b9b3d4606cccd4ae0f"
+  },
+  "nodeGroups": [],
+  "id": "zVL7Kduna6IKdTnk",
+  "tags": []
+}
