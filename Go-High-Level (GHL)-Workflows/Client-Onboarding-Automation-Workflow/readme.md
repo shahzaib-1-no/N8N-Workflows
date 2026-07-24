@@ -3,6 +3,8 @@
 This folder contains an exported n8n workflow designed to completely automate the client onboarding process. It integrates **GoHighLevel (GHL)**, **Google Sheets**, **Gmail**, and **Slack** to ensure a seamless transition from a closed-won deal to project kickoff.
 
 ---
+![Client Onboarding Automation Workflow](Screenshot%202026-07-24%20043127.png)
+---
 
 ## 📋 Workflow Overview
 
