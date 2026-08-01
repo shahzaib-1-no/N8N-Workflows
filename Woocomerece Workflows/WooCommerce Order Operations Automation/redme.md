@@ -4,7 +4,7 @@ This folder contains an exported n8n workflow designed to streamline order confi
 
 ---
 
-![WooCommerce Order Operations Automation](WooCommerce Order Operations Automation Screenshot 2026-08-01 112449.png)
+![WooCommerce Order Operations Automation](Woocomerece Workflows/WooCommerce Order Operations Automation/WooCommerce Order Operations Automation Screenshot 2026-08-01 112449.png)
 
 ---
 
