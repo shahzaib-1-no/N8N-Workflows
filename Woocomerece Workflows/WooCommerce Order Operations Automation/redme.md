@@ -4,7 +4,17 @@ This folder contains an exported n8n workflow designed to streamline order confi
 
 ---
 
-![WooCommerce Order Operations Automation](screenshot.png)
+![WooCommerce Order Operations Automation](WooCommerce Order Operations Automation Screenshot 2026-08-01 112449.png)
+
+---
+
+## 🎯 Key Benefits
+
+* ⚡ **Faster Order Confirmation:** Instant Slack notifications enable the call team to contact customers immediately after purchase.
+* 🚨 **Automated Escalations:** Prevents delayed orders by alerting the store owner if an order remains unconfirmed for over 5 minutes.
+* 📊 **Centralized Record Keeping:** Automatically logs every incoming order directly into Google Sheets without manual data entry.
+* 📦 **Seamless Team Alignment:** Keeps the Call Team, Store Owner, and Packaging Team connected in real-time.
+* 📧 **Better Customer Experience:** Automatically sends order confirmation emails via Gmail as soon as the status updates.
 
 ---
 
@@ -29,7 +39,7 @@ The automation is divided into three core phases:
 * **Trigger:** Runs on a scheduled timer (Every 3 minutes).
 * **Logic:** Checks Google Sheets for orders marked as `Completed` / Confirmed by the call team.
 * **Actions:**
-  * Automatically sends a Order Confirmation email to the customer via **Gmail**.
+  * Automatically sends an Order Confirmation email to the customer via **Gmail**.
   * Posts a detailed notification to the **Packaging Team** on Slack so they can immediately start preparing the item for dispatch.
 
 ---
