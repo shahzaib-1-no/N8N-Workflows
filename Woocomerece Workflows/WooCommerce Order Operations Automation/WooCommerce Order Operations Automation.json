@@ -1,0 +1,1197 @@
+{
+  "name": "WooCommerce Order Operations Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const order = $input.first().json;\n\n// Products ko Sheet ke liye ek line mein jodna\nconst productNames = order.line_items.map(i => i.name).join(', ');\nconst productDetails = order.line_items.map(i => `${i.name} x ${i.quantity} = ${i.total}`).join(' | ');\nconst totalQty = order.line_items.reduce((sum, i) => sum + i.quantity, 0);\n\nreturn [{\n  json: {\n    order_id: order.id,\n    order_number: order.number,\n    date_created: order.date_created,\n    status: order.status,\n    customer_name: (order.billing?.first_name || '') + ' ' + (order.billing?.last_name || ''),\n    customer_email: order.billing?.email || '',\n    customer_phone: order.billing?.phone || '',\n    customer_address: `${order.billing?.address_1 || ''} ${order.billing?.city || ''} ${order.billing?.country || ''}`.trim(),\n    city: order.billing?.city || '',\n    country: order.billing?.country || '',\n    postcode: order.billing?.postcode || '',\n    products: productNames, // Hat, Jacket\n    products_full: productDetails, // Hat x 3 = 36 | Jacket x 10 = 250\n    total_quantity: totalQty, // 13\n    total: order.total,\n    currency: order.currency,\n    currency_symbol: order.currency_symbol,\n    payment_method: order.payment_method_title || 'N/A',\n    payment_url: order.payment_url\n  }\n}];"
+      },
+      "id": "d6dd738e-43d1-40ae-9b3e-967065ffc3ef",
+      "name": "Map Order Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "event": "order.created"
+      },
+      "id": "49d91ecc-8cca-436f-86fb-2f79249b0357",
+      "name": "Order Created",
+      "type": "n8n-nodes-base.wooCommerceTrigger",
+      "typeVersion": 1,
+      "position": [
+        288,
+        144
+      ],
+      "webhookId": "142257ef-511d-4475-bf81-e4f176ff8824",
+      "credentials": {
+        "wooCommerceApi": {
+          "id": "HxYwQalADjb09W7a",
+          "name": "WooCommerce account"
+        }
+      },
+      "notes": "WooCommerce ki 'Legacy REST API Webhooks' se webhook fire hota hai. Kabhi kabhi consistency issue hota hai (n8n community mein reported) - is liye Step 2 mein a backup Schedule+Poll workflow bhi bana sakte ho agar client ko 100% reliability chahiye."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $json.order_id }}",
+            "order_number": "={{ $json.order_number }}",
+            "date_created": "={{ $json.date_created }}",
+            "status": "={{ $json.status }}",
+            "customer_name": "={{ $json.customer_name }}",
+            "customer_email": "={{ $json.customer_email }}",
+            "customer_phone": "={{ $json.customer_phone }}",
+            "customer_address": "={{ $json.customer_address }}",
+            "city": "={{ $json.city }}",
+            "country": "={{ $json.country }}",
+            "postcode": "={{ $json.postcode }}",
+            "products": "={{ $json.products }}",
+            "products_full": "={{ $json.products_full }}",
+            "total_quantity": "={{ $json.total_quantity }}",
+            "total": "={{ $json.total }}",
+            "currency": "={{ $json.currency }}",
+            "currency_symbol": "={{ $json.currency_symbol }}",
+            "payment_method": "={{ $json.payment_method }}",
+            "payment_url": "={{ $json.payment_url }}",
+            "packaging_team": "Pending",
+            "call_order_confirm": "Pending"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "order_number",
+              "displayName": "order_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "date_created",
+              "displayName": "date_created",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_email",
+              "displayName": "customer_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_phone",
+              "displayName": "customer_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_address",
+              "displayName": "customer_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "country",
+              "displayName": "country",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "postcode",
+              "displayName": "postcode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "products",
+              "displayName": "products",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "products_full",
+              "displayName": "products_full",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total_quantity",
+              "displayName": "total_quantity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total",
+              "displayName": "total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "currency_symbol",
+              "displayName": "currency_symbol",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "payment_method",
+              "displayName": "payment_method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "payment_url",
+              "displayName": "payment_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "call_order_confirm",
+              "displayName": "call_order_confirm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "packaging_team",
+              "displayName": "packaging_team",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        752,
+        144
+      ],
+      "id": "468be340-8c69-41c1-987c-3fcca01882ca",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        144
+      ],
+      "id": "34e5e65c-dd15-4b21-90e6-0946599c6c5c",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        112,
+        656
+      ],
+      "id": "dc03ce03-8453-4a36-b1a5-937d3a778813",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=📦 *New Order Confirmed - Ready for Packaging!*  *Order Details:* • *Order ID:* #{{ $('get_call_order_confirm').item.json.order_id }} • *Customer Name:* {{$('get_call_order_confirm').item.json.customer_name}} • *Phone:* {{$('get_call_order_confirm').item.json.customer_phone}} • *Shipping Address:* {{$('get_call_order_confirm').item.json.customer_address}}, {{$('get_call_order_confirm').item.json.city}}, {{$('get_call_order_confirm').item.json.postcode}}  *Items to Pack:* • *Products:* {{$('get_call_order_confirm').item.json.products_full}} • *Total Quantity:* {{$('get_call_order_confirm').item.json.total_quantity}} • *Payment Method:* {{$('get_call_order_confirm').item.json.payment_method}}  Please pack this order and get it ready for delivery!",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        944,
+        1232
+      ],
+      "id": "ede7bd39-4b7e-47e2-994a-a4ebd1fed5e8",
+      "name": "notify packaging team",
+      "webhookId": "ba08a2ff-c213-4355-bb58-c24ae128cb71",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.customer_email }}",
+        "subject": "=Order #{{ $json.order_number }} Confirmed - Thank You!",
+        "message": "=<p>Hi {{ $json.customer_name || $('Code').first().json.customer_name }},</p>  <p>Apka order receive ho gaya hai. Details ye rahi:</p>  <p><b>Order ID:</b>{{ $json.order_id }} <br> <b>Date:</b> {{ $json.date_created }}<br> <b>Status:</b> {{ $json.status }}</p>  <p><b>Products:</b><br> {{ $json.products_full }}</p>  <p><b>Total Quantity:</b> {{ $json.total_quantity }}<br> <b>Total Amount:</b> {{ $json.currency_symbol }} {{ $json.total }}</p>  <p><b>Shipping Address:</b><br> {{ $json.customer_address }}</p>  <p>Hum jald hi apka order dispatch kar denge.</p> <p>Thanks,<br>Your Store Team</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        736,
+        1232
+      ],
+      "id": "2b5498a7-856b-4bf7-bd9c-402b579de2d3",
+      "name": "email to customer",
+      "webhookId": "dcedf49a-fff4-4d31-ac03-0580ded7f242",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bAisleZ1T5xUJKA4",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        1232
+      ],
+      "id": "85ad8e3e-fb67-4bf1-a347-9c3c0c02a468",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get order date string (e.g. \"01/08/2026 20:42:42\")\nlet orderDateStr = $input.first().json.date_created;\n\n// Split Date and Time\nlet [datePart, timePart] = orderDateStr.split(' ');\nlet [day, month, year] = datePart.split('/');\nlet [hours, minutes, seconds] = timePart.split(':');\n\n// Format to ISO string with Pakistan Timezone (+05:00)\nlet isoStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}+05:00`;\n\nlet orderTime = new Date(isoStr);\nlet currentTime = new Date(); // Current system time\n\n// Calculate difference in minutes\nlet diffInMilliseconds = currentTime - orderTime;\nlet diffInMinutes = Math.floor(diffInMilliseconds / (1000 * 60));\n\nif (diffInMinutes < 0) {\n    diffInMinutes = 0;\n}\n\nreturn [{\n    json: {\n        order_id: $input.first().json.order_id,\n        customer_name: $input.first().json.customer_name,\n      total: $input.first().json.total,\n      currency: $input.first().json.currency,\n        minutesAgo: diffInMinutes\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        656
+      ],
+      "id": "25f24cc4-1b02-4837-824e-20f368cd6bc7",
+      "name": "time-calculate"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.minutesAgo }}",
+                    "rightValue": 5,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    },
+                    "id": "ca16d0f1-1c7f-4dc8-a2ad-734ccd1271a2"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4fa04b6d-943d-4319-a08e-f6251f600f8c",
+                    "leftValue": "={{ $json.minutesAgo }}",
+                    "rightValue": 5,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        656
+      ],
+      "id": "889026e3-6e1f-466f-bce8-8f7cdb856080",
+      "name": "Switch"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        672
+      ],
+      "id": "aaed2cb6-bea2-4ba4-bae0-ede91d1671ec",
+      "name": "No Operation, do nothing2"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=The owner has not confirmed the client's order yet.  Order ID:{{ $json.order_id }}  Customer Name: {{ $json.customer_name }} Total Amount: {{$json.total}} {{$json.currency}}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        960,
+        640
+      ],
+      "id": "d264e85a-891b-4b26-8086-3ad94f839793",
+      "name": "alert message to owner",
+      "webhookId": "82ac41bc-d576-4ffa-9f3a-47fec72893e8",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        640
+      ],
+      "id": "f6c1caf3-35e7-4586-803a-a4fe6c76b01d",
+      "name": "No Operation, do nothing3"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        1232
+      ],
+      "id": "364d3795-93a5-4c56-8512-12d77f53b24a",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "call_order_confirm",
+              "lookupValue": "Pending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        320,
+        656
+      ],
+      "id": "9d6abd7a-afa5-4951-b666-1b61ce8db7c0",
+      "name": "get_call_order_confirm_status",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "call_order_confirm",
+              "lookupValue": "Confirmed "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        512,
+        1232
+      ],
+      "id": "9789a2c6-a4c6-43a0-b999-72c3c417a79c",
+      "name": "get_call_order_confirm",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# Overview\n\nAutomatically captures every new WooCommerce order, saves it to a Google Sheet, and sends a Slack notification to the call team so they can contact the customer and confirm the order.\n\n## Purpose\n\nTo automate the order confirmation process, reduce manual work, ensure no orders are missed, and help the call team respond faster.",
+        "height": 368,
+        "width": 352
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -320,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "e2fa0e6b-c0f8-4ff5-85e6-f9059b93d0c9",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "# Node by Node\n\n### 1. WooCommerce\nA customer places a new order in WooCommerce.\n\n### 2. Google Sheets\nThe order details are automatically added to a Google Sheet for tracking and record keeping.\n\n### 3. Notify Call Team (Slack)\nA Slack notification is sent to the call team with the order details so they can call the customer and confirm the order.",
+        "height": 400,
+        "width": 480,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1648,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "8e27fcb4-396d-4951-8095-90a05e788b61",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=Please call the client to confirm this order.  Order Details: • Order ID: {{$json.order_id}} • Customer Name: {{$json.customer_name}} • Phone: {{$json.customer_phone}} • Total Amount: {{$json.currency_symbol}}{{$json.total}} • Items: {{$json.products_full}} • Address: {{$json.customer_address}}, {{$json.city}}",
+        "otherOptions": {}
+      },
+      "id": "5343aa2d-27b0-43df-be05-59d9c8115a23",
+      "name": "Notify confirm order through call team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        944,
+        144
+      ],
+      "webhookId": "d2491239-13c1-4cb0-82c4-f97a37c2d413",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "content": "# Overview\n\nAutomatically monitors pending order confirmations every 5 minutes. If an order remains unconfirmed for more than 5 minutes, a Slack alert is sent to the store owner.\n\n## Purpose\n\nTo ensure orders are confirmed on time, prevent delays, and notify the owner when the call team misses or delays an order confirmation.",
+        "height": 384,
+        "width": 352
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -320,
+        528
+      ],
+      "typeVersion": 1,
+      "id": "a7076b4a-03f8-442e-8b62-a6a625ec62ba",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "# Node by Node\n\n### 1. Schedule Trigger\nRuns automatically every **3 minutes**.\n\n### 2. Google Sheets\nFetches all orders where the **`call_order_confirm`** status is **`Pending`**.\n\n### 3. Calculate Time\nCalculates the time difference between the order creation time and the current time (e.g., {\"minutesAgo\": 4}).\n\n### 4. Switch\nChecks whether the order has been pending for **more than 5 minutes**. If true, the workflow continues.\n\n### 5. Slack\nSends a Slack notification to the store owner, informing them that the order has not been confirmed by the call team.",
+        "height": 640,
+        "width": 480,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1648,
+        432
+      ],
+      "typeVersion": 1,
+      "id": "0796afa0-dc6f-448e-811e-c32618afdfb1",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "# Node by Node\n\n### 1. Schedule Trigger\nRuns automatically every **3 minutes**.\n\n### 2. Google Sheets\nFetches all orders where the **`call_order_confirm`** status is **`Completed`**.\n\n### 3. Gmail\nSends a confirmation email to the customer, informing them that their order has been confirmed and is now being processed.\n\n### 4. Slack\nSends a Slack notification to the packaging team with the order details so they can begin preparing the order.",
+        "height": 560,
+        "width": 480,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1648,
+        1104
+      ],
+      "typeVersion": 1,
+      "id": "a0898732-319c-433f-83b7-394127dcb246",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "# Overview\n\nAutomatically checks for confirmed orders every 3 minutes. Once an order is confirmed, the customer receives a confirmation email, and the packaging team is notified through Slack to begin preparing the order.\n\n## Purpose\n\nTo automate the post-confirmation process, keep customers informed, and ensure the packaging team starts preparing orders without delay.",
+        "height": 400,
+        "width": 352
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -320,
+        1136
+      ],
+      "typeVersion": 1,
+      "id": "6a5fb752-1e83-4d7c-91de-97cbb840be56",
+      "name": "Sticky Note5"
+    }
+  ],
+  "pinData": {
+    "Order Created": [
+      {
+        "json": {
+          "id": 44,
+          "parent_id": 0,
+          "status": "processing",
+          "currency": "PKR",
+          "version": "10.9.4",
+          "prices_include_tax": false,
+          "date_created": "2026-08-01T18:04:36",
+          "date_modified": "2026-08-01T18:04:37",
+          "discount_total": "0",
+          "discount_tax": "0",
+          "shipping_total": "0",
+          "shipping_tax": "0",
+          "cart_tax": "0",
+          "total": "148",
+          "total_tax": "0",
+          "customer_id": 1,
+          "order_key": "wc_order_FQGeTgC6QfbmA",
+          "billing": {
+            "first_name": "Fuller",
+            "last_name": "Wyatt",
+            "company": "",
+            "address_1": "836 South Old Drive",
+            "address_2": "Ullamco minima harum",
+            "city": "Eius corrupti alias",
+            "state": "qwe",
+            "postcode": "12313",
+            "country": "XK",
+            "email": "guz12o@mailinator.com",
+            "phone": "+1 (518) 973-3564"
+          },
+          "shipping": {
+            "first_name": "Fuller",
+            "last_name": "Wyatt",
+            "company": "",
+            "address_1": "836 South Old Drive",
+            "address_2": "Ullamco minima harum",
+            "city": "Eius corrupti alias",
+            "state": "qwe",
+            "postcode": "12313",
+            "country": "XK",
+            "phone": "+1 (518) 973-3564"
+          },
+          "payment_method": "cod",
+          "payment_method_title": "Cash on delivery",
+          "transaction_id": "",
+          "customer_ip_address": "182.190.214.20",
+          "customer_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "created_via": "store-api",
+          "customer_note": "",
+          "date_completed": null,
+          "date_paid": null,
+          "cart_hash": "0b97df719f8745a78373ec55ac61d5c9",
+          "number": "44",
+          "meta_data": [
+            {
+              "id": 191,
+              "key": "_coupons_hash",
+              "value": "d751713988987e9331980363e24189ce"
+            },
+            {
+              "id": 214,
+              "key": "_debug_log_source_pending_deletion",
+              "value": "place-order-debug-d3f17ca0"
+            },
+            {
+              "id": 192,
+              "key": "_fees_hash",
+              "value": "d751713988987e9331980363e24189ce"
+            },
+            {
+              "id": 190,
+              "key": "_shipping_hash",
+              "value": "64656d37dd2ad316b3e09febf0b4dff2"
+            },
+            {
+              "id": 193,
+              "key": "_taxes_hash",
+              "value": "d751713988987e9331980363e24189ce"
+            },
+            {
+              "id": 208,
+              "key": "_wc_order_attribution_device_type",
+              "value": "Desktop"
+            },
+            {
+              "id": 201,
+              "key": "_wc_order_attribution_referrer",
+              "value": "https://workable-sardine-d7aa43.instawp.site/wp-admin/admin.php?page=wc-admin"
+            },
+            {
+              "id": 206,
+              "key": "_wc_order_attribution_session_count",
+              "value": "5"
+            },
+            {
+              "id": 203,
+              "key": "_wc_order_attribution_session_entry",
+              "value": "https://workable-sardine-d7aa43.instawp.site/shop/"
+            },
+            {
+              "id": 205,
+              "key": "_wc_order_attribution_session_pages",
+              "value": "19"
+            },
+            {
+              "id": 204,
+              "key": "_wc_order_attribution_session_start_time",
+              "value": "2026-07-30 07:41:13"
+            },
+            {
+              "id": 200,
+              "key": "_wc_order_attribution_source_type",
+              "value": "typein"
+            },
+            {
+              "id": 207,
+              "key": "_wc_order_attribution_user_agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+            },
+            {
+              "id": 202,
+              "key": "_wc_order_attribution_utm_source",
+              "value": "(direct)"
+            },
+            {
+              "id": 194,
+              "key": "is_vat_exempt",
+              "value": "no"
+            }
+          ],
+          "line_items": [
+            {
+              "id": 27,
+              "name": "Hat",
+              "product_id": 31,
+              "variation_id": 0,
+              "quantity": 1,
+              "tax_class": "",
+              "subtotal": "12",
+              "subtotal_tax": "0",
+              "total": "12",
+              "total_tax": "0",
+              "taxes": [],
+              "meta_data": [],
+              "sku": "woo-fashion-hat",
+              "global_unique_id": "",
+              "price": 12,
+              "image": {
+                "id": "30",
+                "src": "https://workable-sardine-d7aa43.instawp.site/wp-content/uploads/2026/07/167113811-0be977aa-edfe-4a09-b36d-a62f02de4a29.jpeg"
+              },
+              "parent_name": null
+            },
+            {
+              "id": 28,
+              "name": "Jacket",
+              "product_id": 27,
+              "variation_id": 0,
+              "quantity": 4,
+              "tax_class": "",
+              "subtotal": "100",
+              "subtotal_tax": "0",
+              "total": "100",
+              "total_tax": "0",
+              "taxes": [],
+              "meta_data": [],
+              "sku": "woo-fashion-jacket",
+              "global_unique_id": "",
+              "price": 25,
+              "image": {
+                "id": "26",
+                "src": "https://workable-sardine-d7aa43.instawp.site/wp-content/uploads/2026/07/167113817-0fd3751e-b81b-4def-be53-040d8fa049f2.jpeg"
+              },
+              "parent_name": null
+            },
+            {
+              "id": 29,
+              "name": "Shirt",
+              "product_id": 19,
+              "variation_id": 0,
+              "quantity": 1,
+              "tax_class": "",
+              "subtotal": "18",
+              "subtotal_tax": "0",
+              "total": "18",
+              "total_tax": "0",
+              "taxes": [],
+              "meta_data": [
+                {
+                  "id": 275,
+                  "key": "_reduced_stock",
+                  "value": "1",
+                  "display_key": "_reduced_stock",
+                  "display_value": "1"
+                }
+              ],
+              "sku": "woo-fashion-shirt",
+              "global_unique_id": "",
+              "price": 18,
+              "image": {
+                "id": "18",
+                "src": "https://workable-sardine-d7aa43.instawp.site/wp-content/uploads/2026/07/167113854-b669deff-4c3e-4bb0-b00f-96cfbdc4087e.jpeg"
+              },
+              "parent_name": null
+            },
+            {
+              "id": 30,
+              "name": "Shoes",
+              "product_id": 23,
+              "variation_id": 0,
+              "quantity": 1,
+              "tax_class": "",
+              "subtotal": "18",
+              "subtotal_tax": "0",
+              "total": "18",
+              "total_tax": "0",
+              "taxes": [],
+              "meta_data": [
+                {
+                  "id": 276,
+                  "key": "_reduced_stock",
+                  "value": "1",
+                  "display_key": "_reduced_stock",
+                  "display_value": "1"
+                }
+              ],
+              "sku": "woo-fashion-shoes",
+              "global_unique_id": "",
+              "price": 18,
+              "image": {
+                "id": "22",
+                "src": "https://workable-sardine-d7aa43.instawp.site/wp-content/uploads/2026/07/167113861-531ebbcd-f9b5-4c18-b5c7-a878d5017ca2.jpeg"
+              },
+              "parent_name": null
+            }
+          ],
+          "tax_lines": [],
+          "shipping_lines": [],
+          "fee_lines": [],
+          "coupon_lines": [],
+          "refunds": [],
+          "payment_url": "https://workable-sardine-d7aa43.instawp.site/checkout/order-pay/44/?pay_for_order=true&key=wc_order_FQGeTgC6QfbmA",
+          "is_editable": false,
+          "needs_payment": false,
+          "needs_processing": true,
+          "date_created_gmt": "2026-08-01T18:04:36",
+          "date_modified_gmt": "2026-08-01T18:04:37",
+          "date_completed_gmt": null,
+          "date_paid_gmt": null,
+          "currency_symbol": "₨",
+          "_links": {
+            "self": [
+              {
+                "href": "https://workable-sardine-d7aa43.instawp.site/wp-json/wc/v3/orders/44",
+                "targetHints": {
+                  "allow": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE"
+                  ]
+                }
+              }
+            ],
+            "collection": [
+              {
+                "href": "https://workable-sardine-d7aa43.instawp.site/wp-json/wc/v3/orders"
+              }
+            ],
+            "email_templates": [
+              {
+                "embeddable": true,
+                "href": "https://workable-sardine-d7aa43.instawp.site/wp-json/wc/v3/orders/44/actions/email_templates"
+              }
+            ],
+            "customer": [
+              {
+                "href": "https://workable-sardine-d7aa43.instawp.site/wp-json/wc/v3/customers/1"
+              }
+            ]
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Map Order Fields": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Created": {
+      "main": [
+        [
+          {
+            "node": "Map Order Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Notify confirm order through call team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "get_call_order_confirm_status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "email to customer": {
+      "main": [
+        [
+          {
+            "node": "notify packaging team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notify packaging team": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "time-calculate": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "alert message to owner",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "alert message to owner": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "get_call_order_confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_call_order_confirm_status": {
+      "main": [
+        [
+          {
+            "node": "time-calculate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_call_order_confirm": {
+      "main": [
+        [
+          {
+            "node": "email to customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify confirm order through call team": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "582a568c-beef-4722-a74d-2b06118724b7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c5a5331973f441bde5fa004c1414d85455f24ba4151b34b9b3d4606cccd4ae0f"
+  },
+  "nodeGroups": [],
+  "id": "uYSWXDjfEzNY1flU",
+  "tags": []
+}
