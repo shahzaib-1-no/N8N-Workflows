@@ -1,0 +1,1001 @@
+{
+  "name": "WooCommerce - Abandoned Cart Recovery",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "c31d2ae4-cc6a-4285-a9ef-cfd7f8d36a5f",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2192,
+        1808
+      ],
+      "id": "b6539d5f-ba33-4d9b-9810-bd3606bc935b",
+      "name": "Webhook",
+      "webhookId": "c31d2ae4-cc6a-4285-a9ef-cfd7f8d36a5f",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ba08cd2f-af60-4a9a-a5bd-446b5436749d",
+              "name": "body.session_id",
+              "value": "={{ $json.body.session_id }}",
+              "type": "string"
+            },
+            {
+              "id": "c23fe484-ee31-4093-be81-70ac02dd4c05",
+              "name": "body.user_email",
+              "value": "={{ $json.body.user_email }}",
+              "type": "string"
+            },
+            {
+              "id": "7185f138-3685-4190-8fb0-e7886ec2f8d9",
+              "name": "body.sent_at",
+              "value": "={{ $json.body.sent_at }}",
+              "type": "string"
+            },
+            {
+              "id": "a750ac21-e415-489f-b992-814406f10f83",
+              "name": "body.items",
+              "value": "={{ $json.body.items }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1936,
+        1808
+      ],
+      "id": "19236519-9ae6-4b25-8205-c45176deceb8",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop through all incoming items (webhook data)\nfor (const item of $input.all()) {\n  \n  let cartData = item.json;\n  let cartTotalAmount = 0;\n\n  // Check if the 'body.items' array exists\n  if (cartData.body && cartData.body.items && Array.isArray(cartData.body.items)) {\n    \n    // Loop through each product (item) to perform calculations\n    cartData.body.items.forEach(product => {\n      \n      // Convert strings to numbers and multiply (Price x Quantity)\n      let price = parseFloat(product.price || 0);\n      let quantity = parseInt(product.quantity || 1);\n      let lineTotal = price * quantity;\n      \n      // Save the calculated total inside each item\n      product.calculated_item_total = lineTotal;\n      \n      // Add this item's total to the overall cart total amount\n      cartTotalAmount += lineTotal;\n    });\n  }\n\n  // Add a new field 'calculated_cart_total' to the existing data\n  cartData.calculated_cart_total = cartTotalAmount;\n  \n  // Reassign the updated data back to item.json\n  item.json = cartData;\n}\n\n// Return the processed data\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1696,
+        1808
+      ],
+      "id": "9d5e6e91-0858-45b4-b153-ece91505edd4",
+      "name": "Total amount calculate"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.calculated_cart_total }}",
+                    "rightValue": 100000,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gt"
+                    },
+                    "id": "002f389f-612e-4e96-aaad-f90500a5d415"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3d84f4af-21d2-47f1-b149-6e41ad22760f",
+                    "leftValue": "={{ $json.calculated_cart_total }}",
+                    "rightValue": 50000,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b11cb7b3-cc76-44a6-ae1a-d0d925525aa7",
+                    "leftValue": "={{ $json.calculated_cart_total }}",
+                    "rightValue": 25000,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "27388ed1-3316-4340-a510-a63b2689fa77",
+                    "leftValue": "={{ $json.calculated_cart_total }}",
+                    "rightValue": 25000,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1424,
+        1776
+      ],
+      "id": "36c883d7-f8f6-427b-a573-d0dc20c6292e",
+      "name": "Filter Cart Value Range"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w",
+          "mode": "list",
+          "cachedResultName": "woocomerce",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 65828638,
+          "mode": "list",
+          "cachedResultName": "Abandoned Cart Recovery",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit#gid=65828638"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $json.body.session_id }}",
+            "sent_at": "={{ $json.body.sent_at }}",
+            "items": "={{ JSON.stringify($json.body.items) }}",
+            "calculated_cart_total": "={{ $json.calculated_cart_total }}",
+            "priority": "Low",
+            "user_email": "={{ $json.body.user_email }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_email",
+              "displayName": "user_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "items",
+              "displayName": "items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "calculated_cart_total",
+              "displayName": "calculated_cart_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1136,
+        2128
+      ],
+      "id": "85bebf90-5e68-4adf-b772-827b24f5c854",
+      "name": "Log Low Priority Cart",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.user_email }}",
+        "subject": "Add more items to your cart & get 10% OFF! 🛍️",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;\">\n  <h2 style=\"color: #333333; text-align: center;\">You left items in your cart! 🛒</h2>\n  <p style=\"font-size: 16px; color: #555555;\">Hello,</p>\n  <p style=\"font-size: 16px; color: #555555;\">Your current cart total is <strong>Rs: {{ $json.calculated_cart_total }} </strong>.</p>\n  \n  <div style=\"background-color: #f0f7ff; padding: 18px; border-radius: 6px; text-align: center; margin: 20px 0; border: 1px solid #007bff;\">\n    <h3 style=\"margin: 0 0 10px 0; color: #007bff; font-size: 20px;\">🎉 Exclusive Discount Offer!</h3>\n    <p style=\"margin: 0; font-size: 15px; color: #333333; line-height: 1.5;\">\n      If your order total exceeds <strong>Rs 25,000</strong>, you will get an extra <strong>10% OFF</strong>!\n    </p>\n    <div style=\"margin-top: 15px; background: #ffffff; padding: 10px; border-radius: 4px; display: inline-block; border: 1px dashed #007bff;\">\n      <span style=\"font-size: 14px; color: #666666;\">Coupon Code: </span>\n      <strong style=\"font-size: 18px; color: #28a745;\">SAVE10</strong>\n    </div>\n  </div>\n\n  <p style=\"font-size: 15px; color: #555555; text-align: center;\">\n    Add a few more items to hit the Rs 25,000 threshold and use the promo code at checkout.\n  </p>\n\n  <div style=\"text-align: center; margin-top: 25px;\">\n    <a href=\"https://yourstore.com/cart\" style=\"background-color: #28a745; color: #ffffff; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 5px; display: inline-block;\">Update Your Cart</a>\n  </div>\n  \n  <hr style=\"border: none; border-top: 1px solid #eeeeee; margin: 30px 0 15px 0;\" />\n  <p style=\"font-size: 12px; color: #999999; text-align: center;\">If you have already completed your purchase, please ignore this email.</p>\n</div> ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -880,
+        2224
+      ],
+      "id": "2e2451b3-fb03-4476-8d9d-0b1bc76c3a20",
+      "name": "Send Upsell Discount Email",
+      "webhookId": "28759a3e-c6e3-42b0-82ac-ee040eb4f8fb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bAisleZ1T5xUJKA4",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        2128
+      ],
+      "id": "145358d4-1721-4850-b863-4ad5bafa0ace",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w",
+          "mode": "list",
+          "cachedResultName": "woocomerce",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 65828638,
+          "mode": "list",
+          "cachedResultName": "Abandoned Cart Recovery",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit#gid=65828638"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $json.body.session_id }}",
+            "user_email": "={{ $json.body.user_email }}",
+            "sent_at": "={{ $json.body.sent_at }}",
+            "items": "={{ JSON.stringify($json.body.items) }}",
+            "calculated_cart_total": "={{ $json.calculated_cart_total }}",
+            "priority": "Medium"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_email",
+              "displayName": "user_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "items",
+              "displayName": "items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "calculated_cart_total",
+              "displayName": "calculated_cart_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1136,
+        1968
+      ],
+      "id": "84f30654-dca2-4575-b1ce-dde531cdc741",
+      "name": "Log Medium Priority Cart",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.user_email }}",
+        "subject": "Exclusive Offer: Get 20% OFF if you order within the next 2 days! 🛍️",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;\">   <h2 style=\"color: #333333; text-align: center;\">Your Exclusive Discount is Ready! 🛒</h2>   <p style=\"font-size: 16px; color: #555555;\">Hello,</p>   <p style=\"font-size: 16px; color: #555555;\">We noticed your cart total is <strong>Rs {{ $json.calculated_cart_total }}</strong>.</p>      <div style=\"background-color: #fff8e6; padding: 20px; border-radius: 6px; text-align: center; margin: 20px 0; border: 1px solid #ffc107;\">     <h3 style=\"margin: 0 0 10px 0; color: #d97706; font-size: 22px;\">⚡ Limited-Time Offer: 20% OFF!</h3>     <p style=\"margin: 0; font-size: 16px; color: #333333; line-height: 1.5;\">       Complete your purchase within the <strong>next 2 days</strong> to claim an extra <strong>20% OFF</strong> your order!     </p>     <div style=\"margin-top: 15px; background: #ffffff; padding: 10px 18px; border-radius: 4px; display: inline-block; border: 2px dashed #d97706;\">       <span style=\"font-size: 14px; color: #666666;\">Coupon Code: </span>       <strong style=\"font-size: 20px; color: #28a745;\">{{ $json.code || 'OFFER20' }}</strong>     </div>     <p style=\"margin-top: 10px; font-size: 13px; color: #dc3545; font-weight: bold;\">       ⏰ This special discount is valid for 48 hours only.     </p>   </div>    <div style=\"text-align: center; margin-top: 25px;\">     <a href=\"https://yourstore.com/cart\" style=\"background-color: #28a745; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 16px;\">Complete Your Order & Save 20%</a>   </div>      <hr style=\"border: none; border-top: 1px solid #eeeeee; margin: 30px 0 15px 0;\" />   <p style=\"font-size: 12px; color: #999999; text-align: center;\">If you have already completed your order, please disregard this email.</p> </div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -896,
+        1968
+      ],
+      "id": "bd7cd5fb-6810-49dd-8cfb-0a7a3f177b04",
+      "name": "Send 20% Discount Email",
+      "webhookId": "97dfce26-5a4a-4463-89a6-5f81cf443761",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bAisleZ1T5xUJKA4",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        1968
+      ],
+      "id": "937249ba-f74c-4f4a-9ba4-d6957401bd11",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        1792
+      ],
+      "id": "a1053d8c-8948-4095-8e06-a1438925aa3e",
+      "name": "No Operation, do nothing2"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w",
+          "mode": "list",
+          "cachedResultName": "woocomerce",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 65828638,
+          "mode": "list",
+          "cachedResultName": "Abandoned Cart Recovery",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit#gid=65828638"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $json.body.session_id }}",
+            "user_email": "={{ $json.body.user_email }}",
+            "sent_at": "={{ $json.body.sent_at }}",
+            "items": "={{ JSON.stringify($json.body.items) }}",
+            "calculated_cart_total": "={{ $json.calculated_cart_total }}",
+            "priority": "High"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_email",
+              "displayName": "user_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "items",
+              "displayName": "items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "calculated_cart_total",
+              "displayName": "calculated_cart_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1136,
+        1792
+      ],
+      "id": "8fdf7091-7c3e-42ad-8fd2-28a03ce80884",
+      "name": "Log High Priority Cart",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.user_email }}",
+        "subject": "Exclusive VIP Offer: Get 30% OFF your cart total! 🛍️",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;\">\n  <h2 style=\"color: #333333; text-align: center;\">VIP Exclusive Offer Just For You! 🎁</h2>\n  <p style=\"font-size: 16px; color: #555555;\">Hello,</p>\n  <p style=\"font-size: 16px; color: #555555;\">We noticed your cart total is <strong>Rs {{ $json.calculated_cart_total }}</strong>.</p>\n  \n  <div style=\"background-color: #f0fdf4; padding: 20px; border-radius: 6px; text-align: center; margin: 20px 0; border: 1px solid #22c55e;\">\n    <h3 style=\"margin: 0 0 10px 0; color: #15803d; font-size: 22px;\">🎉 Exclusive 30% OFF Discount!</h3>\n    <p style=\"margin: 0; font-size: 16px; color: #333333; line-height: 1.5;\">\n      As a high-priority customer, you get our maximum discount of <strong>30% OFF</strong> when you complete your order today!\n    </p>\n    <div style=\"margin-top: 15px; background: #ffffff; padding: 10px 18px; border-radius: 4px; display: inline-block; border: 2px dashed #22c55e;\">\n      <span style=\"font-size: 14px; color: #666666;\">Coupon Code: </span>\n      <strong style=\"font-size: 20px; color: #15803d;\">{{ $json.code || 'VIP30' }}</strong>\n    </div>\n    <p style=\"margin-top: 10px; font-size: 13px; color: #dc3545; font-weight: bold;\">\n      ⏰ Don't wait—this special VIP reward is available for a limited time.\n    </p>\n  </div>\n\n  <div style=\"text-align: center; margin-top: 25px;\">\n    <a href=\"https://yourstore.com/cart\" style=\"background-color: #15803d; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 16px;\">Claim 30% OFF & Complete Order</a>\n  </div>\n  \n  <hr style=\"border: none; border-top: 1px solid #eeeeee; margin: 30px 0 15px 0;\" />\n  <p style=\"font-size: 12px; color: #999999; text-align: center;\">If you have already completed your purchase, please disregard this email.</p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -896,
+        1792
+      ],
+      "id": "a44e769f-f1fe-4c5a-8c12-1c8dc21b3a6c",
+      "name": "Send 30% Discount Email",
+      "webhookId": "97dfce26-5a4a-4463-89a6-5f81cf443761",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bAisleZ1T5xUJKA4",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        1616
+      ],
+      "id": "d6931a69-d39d-4610-bcb9-9340e5995219",
+      "name": "No Operation, do nothing3"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w",
+          "mode": "list",
+          "cachedResultName": "woocomerce",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 65828638,
+          "mode": "list",
+          "cachedResultName": "Abandoned Cart Recovery",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19YbEyO4md459nETw86O9W3sVhHKuj0JiXADuNDm6w6w/edit#gid=65828638"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $json.body.session_id }}",
+            "user_email": "={{ $json.body.user_email }}",
+            "sent_at": "={{ $json.body.sent_at }}",
+            "items": "={{ JSON.stringify($json.body.items) }}",
+            "calculated_cart_total": "={{ $json.calculated_cart_total }}",
+            "priority": "vip"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_email",
+              "displayName": "user_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "items",
+              "displayName": "items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "calculated_cart_total",
+              "displayName": "calculated_cart_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1136,
+        1616
+      ],
+      "id": "ebc47d1a-b1e5-41ad-bc70-833bea258ccc",
+      "name": "Log VIP Priority Cart",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cBT5eAY5AsNseQF3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.user_email }}",
+        "subject": "VIP Exclusive: Get 40% OFF your cart total! 👑",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;\">\n  <h2 style=\"color: #333333; text-align: center;\">👑 VIP Exclusive Offer Just For You!</h2>\n  <p style=\"font-size: 16px; color: #555555;\">Hello,</p>\n  <p style=\"font-size: 16px; color: #555555;\">We noticed your cart total is <strong>Rs {{ $json.calculated_cart_total }}</strong>.</p>\n  \n  <div style=\"background-color: #fdf4ff; padding: 20px; border-radius: 6px; text-align: center; margin: 20px 0; border: 1px solid #c084fc;\">\n    <h3 style=\"margin: 0 0 10px 0; color: #7e22ce; font-size: 22px;\">🎉 Special 40% OFF VIP Reward!</h3>\n    <p style=\"margin: 0; font-size: 16px; color: #333333; line-height: 1.5;\">\n      As one of our top VIP customers, we are offering you our highest discount of <strong>40% OFF</strong> when you complete your order today!\n    </p>\n    <div style=\"margin-top: 15px; background: #ffffff; padding: 10px 18px; border-radius: 4px; display: inline-block; border: 2px dashed #a855f7;\">\n      <span style=\"font-size: 14px; color: #666666;\">Coupon Code: </span>\n      <strong style=\"font-size: 20px; color: #7e22ce;\">{{ $json.code || 'VIP40' }}</strong>\n    </div>\n    <p style=\"margin-top: 10px; font-size: 13px; color: #dc3545; font-weight: bold;\">\n      ⏰ Don't wait—this exclusive 40% VIP reward is available for a limited time only.\n    </p>\n  </div>\n\n  <div style=\"text-align: center; margin-top: 25px;\">\n    <a href=\"https://yourstore.com/cart\" style=\"background-color: #7e22ce; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 16px;\">Claim 40% OFF & Checkout</a>\n  </div>\n  \n  <hr style=\"border: none; border-top: 1px solid #eeeeee; margin: 30px 0 15px 0;\" />\n  <p style=\"font-size: 12px; color: #999999; text-align: center;\">If you have already completed your purchase, please disregard this email.</p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -896,
+        1616
+      ],
+      "id": "3b09f5e6-6b0e-4082-a6ce-2e7aeec35e35",
+      "name": "Send 40% Discount Email",
+      "webhookId": "97dfce26-5a4a-4463-89a6-5f81cf443761",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bAisleZ1T5xUJKA4",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "#  Abandoned Cart Recovery With Smart Discounts",
+        "height": 80,
+        "width": 488,
+        "color": 4
+      },
+      "id": "a3b62b00-726a-4bce-8e0e-91f5948d633e",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1808,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Overview\nWhen webhook receives abandoned cart, this workflow recovers it with tiered discounts:\n\n1. Normalize session and cart fields\n2. Calculate item totals and cart total\n3. Route cart by value into 4 tiers\n4. Log to Google Sheets with priority tag\n5. Send matching discount email via Gmail\n6. End flow with NoOp",
+        "height": 408,
+        "width": 300,
+        "color": 3
+      },
+      "id": "1704eaab-9ed9-4d44-8020-f328a3235b4c",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2592,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n1. Webhook\nReceives POST cart_finalized event with items and user email\n\n2. Edit Fields\nExtracts session_id, user_email, sent_at, items\n\n3. Total amount calculate\nCalculates price x quantity per item and total cart value\n\n4. Filter Cart Value Range\nRoutes cart to 4 tiers based on total value\n\n5. Log Low Priority Cart\nLogs carts under 25000 to Sheets as Low\n\n6. Send Upsell Discount Email\nSends 10 percent upsell email to reach 25000 threshold\n\n7. No Operation do nothing\nEnd step for low tier\n\n8. Log Medium Priority Cart\nLogs 25000 to 49999 carts as Medium\n\n9. Send 20 percent Discount Email\nSends 20 percent off email with 2 day urgency\n\n10. No Operation do nothing1\nEnd step for medium tier\n\n11. No Operation do nothing2\nEnd step for high tier\n\n12. Log High Priority Cart\nLogs 50000 to 100000 carts as High\n\n13. Send 30 percent Discount Email\nSends 30 percent VIP email\n\n14. No Operation do nothing3\nEnd step for VIP tier\n\n15. Log VIP Priority Cart\nLogs carts over 100000 as vip\n\n16. Send 40 percent Discount Email\nSends 40 percent top VIP reward email",
+        "height": 868,
+        "width": 488,
+        "color": 2
+      },
+      "id": "e0361218-e84d-4cdc-a0b9-508b913e6330",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        1520
+      ]
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "motion-estranged-cranium.ngrok-free.dev",
+            "user-agent": "WordPress/7.0.2; https://workable-sardine-d7aa43.instawp.site",
+            "content-length": "325",
+            "accept": "*/*",
+            "accept-encoding": "deflate, gzip, br, zstd",
+            "content-type": "application/json; charset=utf-8",
+            "x-forwarded-for": "134.199.236.6",
+            "x-forwarded-host": "motion-estranged-cranium.ngrok-free.dev",
+            "x-forwarded-proto": "https"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "event_type": "cart_finalized",
+            "session_id": "1",
+            "items": [
+              {
+                "product_id": 31,
+                "product_name": "Hat",
+                "price": "12",
+                "quantity": 1
+              },
+              {
+                "product_id": 27,
+                "product_name": "Jacket",
+                "price": "25",
+                "quantity": 1
+              },
+              {
+                "product_id": 19,
+                "product_name": "Shirt",
+                "price": "18",
+                "quantity": 3
+              }
+            ],
+            "user_email": "sa4@mailinator.com",
+            "sent_at": "2026-08-05 17:11:01"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/c31d2ae4-cc6a-4285-a9ef-cfd7f8d36a5f",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Total amount calculate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Total amount calculate": {
+      "main": [
+        [
+          {
+            "node": "Filter Cart Value Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Cart Value Range": {
+      "main": [
+        [
+          {
+            "node": "Log VIP Priority Cart",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log High Priority Cart",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Medium Priority Cart",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Low Priority Cart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Low Priority Cart": {
+      "main": [
+        [
+          {
+            "node": "Send Upsell Discount Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Upsell Discount Email": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Medium Priority Cart": {
+      "main": [
+        [
+          {
+            "node": "Send 20% Discount Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send 20% Discount Email": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log High Priority Cart": {
+      "main": [
+        [
+          {
+            "node": "Send 30% Discount Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send 30% Discount Email": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log VIP Priority Cart": {
+      "main": [
+        [
+          {
+            "node": "Send 40% Discount Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send 40% Discount Email": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "101ff689-1857-44d8-8c22-ddb2b5f5987b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c5a5331973f441bde5fa004c1414d85455f24ba4151b34b9b3d4606cccd4ae0f"
+  },
+  "nodeGroups": [],
+  "id": "5hP2NOMOZGzFc0Wv",
+  "tags": []
+}
