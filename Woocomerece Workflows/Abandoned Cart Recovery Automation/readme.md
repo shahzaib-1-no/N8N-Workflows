@@ -4,8 +4,7 @@ This folder contains an exported n8n workflow designed to automatically recover 
 
 ---
 
-![WooCommerce Abandoned Cart Recovery Automation]([WooCommerce - Abandoned Cart Recovery Screenshot 2026-08-05 102718.png](https://github.com/shahzaib-1-no/N8N-Workflows/blob/998ca39c13b60b511adba58bd049062960dd36eb/Woocomerece%20Workflows/Abandoned%20Cart%20Recovery%20Automation/WooCommerce%20-%20Abandoned%20Cart%20Recovery%20Screenshot%202026-08-05%20102718.png))
-
+![WooCommerce Abandoned Cart Recovery Automation](<WooCommerce - Abandoned Cart Recovery Screenshot 2026-08-05 102718.png>)
 ---
 
 ## 🎯 Key Benefits
