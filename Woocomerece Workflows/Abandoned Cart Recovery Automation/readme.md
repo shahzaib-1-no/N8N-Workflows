@@ -56,3 +56,15 @@ The automation runs through three core operational phases:
 3. Connect your credentials for **Google Sheets** and **Gmail**.
 4. Set up your Webhook URL inside your WooCommerce store or cart tracking plugin.
 5. Activate the workflow!
+
+---
+
+## ⭐ Support
+
+If you like this Workflow, please **star the repository** on GitHub. It helps others find it and supports the project growth.
+---
+
+## 🔹 Author
+
+👨‍💻 Created & maintained by [Shahzaib Ali](https://www.linkedin.com/in/shahzaib-ali-8a2b94247/)
+📬 For freelance work: **[sa4715228@gmail.com](mailto:sa4715228@gmail.com)**
