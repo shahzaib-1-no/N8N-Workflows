@@ -1,0 +1,955 @@
+{
+  "name": "Fraud Detection + Auto-Cancel Workflow (WooCommerce)",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "order.created"
+      },
+      "id": "e2b26698-f194-4c0e-a2f0-278707a16266",
+      "name": "WooCommerce - New Order",
+      "type": "n8n-nodes-base.wooCommerceTrigger",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        272
+      ],
+      "webhookId": "fraud-detection-wc-001",
+      "credentials": {
+        "wooCommerceApi": {
+          "id": "HxYwQalADjb09W7a",
+          "name": "WooCommerce account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "order_id",
+              "value": "={{ $json.id }}",
+              "type": "number"
+            },
+            {
+              "id": "a2",
+              "name": "customer_ip",
+              "value": "={{ $json.customer_ip_address }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "billing_email",
+              "value": "={{ $json.billing.email }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "transaction_id",
+              "value": "={{ $json.transaction_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "order_total",
+              "value": "={{ $json.total }}",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "billing_first_name",
+              "value": "={{ $json.billing.first_name }}",
+              "type": "string"
+            },
+            {
+              "id": "a7",
+              "name": "billing_last_name",
+              "value": "={{ $json.billing.last_name }}",
+              "type": "string"
+            },
+            {
+              "id": "a8",
+              "name": "billing_address",
+              "value": "={{ $json.billing.address_1 }}",
+              "type": "string"
+            },
+            {
+              "id": "a9",
+              "name": "billing_city",
+              "value": "={{ $json.billing.city }}",
+              "type": "string"
+            },
+            {
+              "id": "a10",
+              "name": "billing_state",
+              "value": "={{ $json.billing.state }}",
+              "type": "string"
+            },
+            {
+              "id": "a11",
+              "name": "billing_country",
+              "value": "={{ $json.billing.country }}",
+              "type": "string"
+            },
+            {
+              "id": "a12",
+              "name": "billing_postcode",
+              "value": "={{ $json.billing.postcode }}",
+              "type": "string"
+            },
+            {
+              "id": "2f94113d-88a4-42fe-aa90-71839cdb061d",
+              "name": "payment_method",
+              "value": "={{ $json.payment_method }}",
+              "type": "string"
+            },
+            {
+              "id": "b6b60707-0f6a-4fac-becc-c7243df49664",
+              "name": "payment_method_title",
+              "value": "={{ $json.payment_method_title }}",
+              "type": "string"
+            },
+            {
+              "id": "c3e04928-5872-41e0-9c1e-ba286b830bd0",
+              "name": "customer_id",
+              "value": "={{ $json.customer_id }}",
+              "type": "number"
+            },
+            {
+              "id": "f5cfce60-1719-4c1e-9e91-6331980930d1",
+              "name": "order_key",
+              "value": "={{ $json.order_key }}",
+              "type": "string"
+            },
+            {
+              "id": "69a07413-9fa8-45c7-baa5-8ff8af196980",
+              "name": "currency",
+              "value": "={{ $json.currency }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "37d4cc41-7c38-451c-a054-84420d0d10d0",
+      "name": "Set - Extract Order Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        64,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json.output.risk_score }}",
+                    "rightValue": 75,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HIGH"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "leftValue": "={{ $json.output.risk_score }}",
+                    "rightValue": 40,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "MEDIUM"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "ca2b6c68-adcb-417b-8997-3b1bed9d61ec",
+      "name": "Switch - Risk Level",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        688,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "order",
+        "operation": "update",
+        "orderId": "={{ $('Set - Extract Order Fields').first().json.order_id }}",
+        "updateFields": {
+          "status": "cancelled"
+        },
+        "billingUi": {},
+        "couponLinesUi": {},
+        "feeLinesUi": {},
+        "lineItemsUi": {},
+        "metadataUi": {},
+        "shippingUi": {},
+        "shippingLinesUi": {}
+      },
+      "id": "b6dea206-5230-4d83-a052-b0c5fbf7039b",
+      "name": "WooCommerce - Cancel Order",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        48
+      ],
+      "credentials": {
+        "wooCommerceApi": {
+          "id": "HxYwQalADjb09W7a",
+          "name": "WooCommerce account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "order",
+        "operation": "update",
+        "orderId": "={{ $('Set - Extract Order Fields').first().json.order_id }}",
+        "updateFields": {
+          "status": "on-hold"
+        },
+        "billingUi": {},
+        "couponLinesUi": {},
+        "feeLinesUi": {},
+        "lineItemsUi": {},
+        "metadataUi": {},
+        "shippingUi": {},
+        "shippingLinesUi": {}
+      },
+      "id": "57ee282e-74d9-45af-b7a4-9744ad2a7e59",
+      "name": "WooCommerce - Hold Order",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        256
+      ],
+      "credentials": {
+        "wooCommerceApi": {
+          "id": "HxYwQalADjb09W7a",
+          "name": "WooCommerce account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "name"
+        },
+        "text": "=⚠️ MEDIUM RISK - MANUAL REVIEW REQUIRED\nOrder #{{ $('Set - Extract Order Fields').first().json.order_id }} Fullname: {{ $json.shipping.first_name }} {{ $json.shipping.last_name }} Customer: {{ $('Set - Extract Order Fields').first().json.billing_email }} IP: {{ $('Set - Extract Order Fields').first().json.customer_ip }} Total: ${{ $('Set - Extract Order Fields').first().json.order_total }} Risk-Score: {{ $('Fraud Detection Agent').item.json.output.risk_score }} Reason: {{ $('Fraud Detection Agent').item.json.output.reason }}\nReview in WooCommerce Admin → Orders",
+        "otherOptions": {}
+      },
+      "id": "475a6020-2cb2-48c7-a437-e0e8e32f6f1a",
+      "name": "Slack - Medium Risk Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1408,
+        256
+      ],
+      "webhookId": "4416a1bc-95e6-4027-8c92-91ea22872894",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "7500c989-e028-4e73-adfa-3a787076dafd",
+      "name": "No Op - Low Risk",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Automated WooCommerce Fraud Detection",
+        "height": 80,
+        "width": 456,
+        "color": 4
+      },
+      "id": "0ef394f7-e436-4a43-b840-d192265e811b",
+      "name": "Note: Title",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "content": "#  Overview\nThis automated n8n workflow provides real-time, AI-driven fraud evaluation for incoming WooCommerce orders. It uses an **AI Fraud Detection Agent** (powered by **Google Gemini**) to analyze customer details and payment patterns. Based on the calculated risk score, the workflow automatically cancels suspicious orders, holds borderline orders for manual review, or allows legitimate orders to proceed seamlessly.\n\n## Purpose & Key Objectives\n* **Prevent Financial Losses:** Automatically halt high-risk or fake orders before fulfillment to avoid chargebacks, gateway fees, and inventory lockups.\n* **AI-Powered Risk Assessment:** Leverage Large Language Models (LLM) to intelligently analyze order parameters (disposable emails, address anomalies, high total amounts, payment methods) rather than relying on static rules.\n* **Instant Team Notifications:** Alert the risk/operations team instantly via Slack with detailed risk scores and clear contextual reasons.\n* **Automated Store Management:** Reduce manual overhead by programmatically updating WooCommerce order statuses (Cancelled or On-Hold).\n",
+        "height": 600,
+        "width": 460,
+        "color": 3
+      },
+      "id": "653b5930-8b25-4d61-af81-a1c0978eda43",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -752,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Node-by-node Purpose\n\n*1)* **New Order Trigger:** Triggers automatically on the order.created event.\n\n*2)* **Extract Order Fields:** Extracts essential customer data (Name, Email, IP, Order Total, Addresses).\n\n*3)* **Fraud Detection Agent:** Evaluates order details using **Google Gemini** and formats output via **Structured Output Parser** (risk_score, reason).\n\n*4)* **Risk Level Switch:** Evaluates the risk_scorenagainst predefined thresholds: HIGH Risk ($\\ge 75$)\n\n*5)* **Cancel Order & Slack - High Risk Alert:** Auto-cancels the WooCommerce order and notifies the team via Slack.\n\n*6)* **Hold Order & Slack - Medium Risk Alert:** Sets order status to On-Hold and requests manual verification in Slack.\n\n*7)* **No Op - Low Risk:** Passes valid orders straight to standard fulfillment.\n\n",
+        "height": 660,
+        "width": 424,
+        "color": 2
+      },
+      "id": "873cd5f7-4e1a-468b-8951-3ac02f34010e",
+      "name": "Note: Node-by-node",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Please analyze this WooCommerce order data and return the risk score: \n{{ JSON.stringify($json) }}",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "Role:\nYou are an expert E-commerce Fraud Detection AI. Your objective is to analyze incoming WooCommerce order details and calculate a highly accurate fraud risk score.\n\nTask Scope & Rules:\nAnalyze the provided order JSON data and calculate a risk_score on a scale of 0 to 100 (0 = extremely safe, 100 = guaranteed fraud).\nApply the following rules to determine the score:\n\nEmail: Flag disposable, temporary, or suspicious email domains (e.g., mailinator.com, temp-mail). This should heavily increase the score (+40 to +60).\n\nAddress & Name: Look for gibberish, fake names, or keyboard smashes (e.g., \"qwe\", \"asdf\", \"test\"). This indicates high risk.\n\nPayment & Value: Unusually high order totals combined with Cash on Delivery (COD) and suspicious details should increase the risk.\n\nCalculate the final score based on the combination of these red flags.\n\nOutput Format:\nYou must respond ONLY with a valid JSON object. Do not include any conversational text, greetings, explanations, or Markdown code blocks (do not use ```json).\nYour output must look exactly like this:\n{\n  \"risk_score\": 85,\n  \"reason\": \"Explanation of the risk score\"\n}\n\nEdge Case Handling:\n\nIf the required data (like email, IP, or address) is completely missing, assign a baseline medium risk score of 50 to flag the order for manual human review.\n\nIf the input data is completely unreadable or not related to an order, default to a score of 100 to trigger an automatic cancellation\n\nHallucination Avoidance: Only use the information explicitly present in the provided order JSON. Do not infer, assume, or invent missing details. If a field is missing, unclear, unreadable, or contradictory, mark it as missing and apply the baseline or unreadable-data rule exactly as specified. Never fabricate email, IP, address, name, payment, or order details."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        272,
+        272
+      ],
+      "id": "0c21050b-5ad3-4cc9-be89-ca14ba1b2f61",
+      "name": "Fraud Detection Agent",
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        560
+      ],
+      "id": "5fb2c8f8-1b09-4407-a3c7-61f23137c6c4",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "pkykCzfj5RPowR5G",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9c514181-2c17-49f5-8ba1-8cebc55e9083",
+              "leftValue": "={{ $json.payment_method }}",
+              "rightValue": "cod",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1376,
+        48
+      ],
+      "id": "8e71706b-d86f-45aa-b502-bc02f5f4f738",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=🚨 HIGH RISK ORDER AUTO-CANCELLED Order #{{ $('Set - Extract Order Fields').first().json.order_id }} Fullname: {{ $json.shipping.first_name }} {{ $json.shipping.last_name }} Customer: {{ $('Set - Extract Order Fields').first().json.billing_email }} IP: {{ $('Set - Extract Order Fields').first().json.customer_ip }} Total: ${{ $('Set - Extract Order Fields').first().json.order_total }} Risk-Score: {{ $('Fraud Detection Agent').item.json.output.risk_score }} Reason: {{ $('Fraud Detection Agent').item.json.output.reason }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1744,
+        32
+      ],
+      "id": "bedf3fa4-2e70-433e-b954-f86de449c452",
+      "name": "Slack - High Risk Alert",
+      "webhookId": "8d4242a3-d584-4e96-9f73-4ac077125bb5",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        256,
+        768
+      ],
+      "id": "54bf9e6e-1a5d-44f3-8b0c-b2b54d4cc990",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=🚨 *Workflow Execution Failed!*  • *Workflow:* {{ $json.workflow.name }} • *Failed Node:* {{ $json.execution.lastNodeExecuted }} • *Execution ID:* #{{ $json.execution.id }}  *Error Details:* ```{{ $json.execution.error.message }}```  🔗 <{{ $json.execution.url }}|Click here to open Execution Logs>",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        480,
+        768
+      ],
+      "id": "31631549-d33a-463d-ba38-840f0c3b6a15",
+      "name": "Slack - Workflow Failure Alert",
+      "webhookId": "24cf8768-b5e6-47a6-b081-4008b63db114",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B49NSVBRC",
+          "mode": "id"
+        },
+        "text": "=🚨 *Agent Execution Failed!*  • *Workflow:* {{ $json.workflow.name }} • *Failed Node:* {{ $json.execution.lastNodeExecuted }} • *Execution ID:* #{{ $json.execution.id }}  *Error Details:* ```{{ $json.execution.error.message }}```  🔗 <{{ $json.execution.url }}|Click here to open Execution Logs>",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        688,
+        448
+      ],
+      "id": "31fa9bb5-7297-4bb5-81d8-88f3953c30aa",
+      "name": "Agent Failure Alert",
+      "webhookId": "0e4331ad-99c1-48a8-b66f-01092f6300b4",
+      "credentials": {
+        "slackApi": {
+          "id": "7yGbzPrgeQvE6O4B",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"risk_score\": {\n      \"type\": \"number\",\n      \"description\": \"Fraud risk score between 0 and 100\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Brief explanation of why this risk score was assigned\"\n    }\n  },\n  \"required\": [\n    \"risk_score\",\n    \"reason\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        560
+      ],
+      "id": "f49ce7f5-2e67-47dd-ada4-1fc95125c228",
+      "name": "Structured Output"
+    },
+    {
+      "parameters": {
+        "model": "mistral-medium-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        320,
+        560
+      ],
+      "id": "47600e08-e02f-488a-ad04-dd2b7ddd509a",
+      "name": "Mistral Cloud Chat Model",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "zQNEg3zQyWYVaFox",
+          "name": "Mistral Cloud account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "WooCommerce - New Order": [
+      {
+        "json": {
+          "id": 60,
+          "parent_id": 0,
+          "status": "processing",
+          "currency": "PKR",
+          "version": "10.9.4",
+          "prices_include_tax": false,
+          "date_created": "2026-08-10T01:36:15",
+          "date_modified": "2026-08-10T01:36:16",
+          "discount_total": "0",
+          "discount_tax": "0",
+          "shipping_total": "0",
+          "shipping_tax": "0",
+          "cart_tax": "0",
+          "total": "99",
+          "total_tax": "0",
+          "customer_id": 1,
+          "order_key": "wc_order_WRK6BRqT8FmYk",
+          "billing": {
+            "first_name": "Fuller",
+            "last_name": "Wyatt",
+            "company": "",
+            "address_1": "836 South Old Drive",
+            "address_2": "Ullamco minima harum",
+            "city": "Eius corrupti alias",
+            "state": "qwe",
+            "postcode": "12313",
+            "country": "XK",
+            "email": "guz12o@mailinator.com",
+            "phone": "+1 (518) 973-3564"
+          },
+          "shipping": {
+            "first_name": "Fuller",
+            "last_name": "Wyatt",
+            "company": "",
+            "address_1": "836 South Old Drive",
+            "address_2": "Ullamco minima harum",
+            "city": "Eius corrupti alias",
+            "state": "qwe",
+            "postcode": "12313",
+            "country": "XK",
+            "phone": "+1 (518) 973-3564"
+          },
+          "payment_method": "cod",
+          "payment_method_title": "Cash on delivery",
+          "transaction_id": "",
+          "customer_ip_address": "182.190.212.228",
+          "customer_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+          "created_via": "store-api",
+          "customer_note": "",
+          "date_completed": null,
+          "date_paid": null,
+          "cart_hash": "86f06de5504908dc1da64edce0d87052",
+          "number": "60",
+          "meta_data": [
+            {
+              "id": 495,
+              "key": "_shipping_hash",
+              "value": "64656d37dd2ad316b3e09febf0b4dff2"
+            },
+            {
+              "id": 496,
+              "key": "_coupons_hash",
+              "value": "d751713988987e9331980363e24189ce"
+            },
+            {
+              "id": 497,
+              "key": "_fees_hash",
+              "value": "d751713988987e9331980363e24189ce"
+            },
+            {
+              "id": 498,
+              "key": "_taxes_hash",
+              "value": "d751713988987e9331980363e24189ce"
+            },
+            {
+              "id": 499,
+              "key": "is_vat_exempt",
+              "value": "no"
+            },
+            {
+              "id": 505,
+              "key": "_wc_order_attribution_source_type",
+              "value": "typein"
+            },
+            {
+              "id": 506,
+              "key": "_wc_order_attribution_referrer",
+              "value": "https://workable-sardine-d7aa43.instawp.site/wp-admin/admin.php?page=wc-admin"
+            },
+            {
+              "id": 507,
+              "key": "_wc_order_attribution_utm_source",
+              "value": "(direct)"
+            },
+            {
+              "id": 508,
+              "key": "_wc_order_attribution_session_entry",
+              "value": "https://workable-sardine-d7aa43.instawp.site/shop/"
+            },
+            {
+              "id": 509,
+              "key": "_wc_order_attribution_session_start_time",
+              "value": "2026-07-30 07:41:13"
+            },
+            {
+              "id": 510,
+              "key": "_wc_order_attribution_session_pages",
+              "value": "6"
+            },
+            {
+              "id": 511,
+              "key": "_wc_order_attribution_session_count",
+              "value": "16"
+            },
+            {
+              "id": 512,
+              "key": "_wc_order_attribution_user_agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+            },
+            {
+              "id": 513,
+              "key": "_wc_order_attribution_device_type",
+              "value": "Desktop"
+            },
+            {
+              "id": 518,
+              "key": "_moderncart_source",
+              "value": "1"
+            },
+            {
+              "id": 520,
+              "key": "_debug_log_source_pending_deletion",
+              "value": "place-order-debug-1ced44a8"
+            }
+          ],
+          "line_items": [
+            {
+              "id": 53,
+              "name": "Hat",
+              "product_id": 31,
+              "variation_id": 0,
+              "quantity": 2,
+              "tax_class": "",
+              "subtotal": "24",
+              "subtotal_tax": "0",
+              "total": "24",
+              "total_tax": "0",
+              "taxes": [],
+              "meta_data": [],
+              "sku": "woo-fashion-hat",
+              "global_unique_id": "",
+              "price": 12,
+              "image": {
+                "id": "30",
+                "src": "https://workable-sardine-d7aa43.instawp.site/wp-content/uploads/2026/07/167113811-0be977aa-edfe-4a09-b36d-a62f02de4a29.jpeg"
+              },
+              "parent_name": null
+            },
+            {
+              "id": 54,
+              "name": "Jacket",
+              "product_id": 27,
+              "variation_id": 0,
+              "quantity": 3,
+              "tax_class": "",
+              "subtotal": "75",
+              "subtotal_tax": "0",
+              "total": "75",
+              "total_tax": "0",
+              "taxes": [],
+              "meta_data": [],
+              "sku": "woo-fashion-jacket",
+              "global_unique_id": "",
+              "price": 25,
+              "image": {
+                "id": "26",
+                "src": "https://workable-sardine-d7aa43.instawp.site/wp-content/uploads/2026/07/167113817-0fd3751e-b81b-4def-be53-040d8fa049f2.jpeg"
+              },
+              "parent_name": null
+            }
+          ],
+          "tax_lines": [],
+          "shipping_lines": [],
+          "fee_lines": [],
+          "coupon_lines": [],
+          "refunds": [],
+          "payment_url": "https://workable-sardine-d7aa43.instawp.site/checkout/order-pay/60/?pay_for_order=true&key=wc_order_WRK6BRqT8FmYk",
+          "is_editable": false,
+          "needs_payment": false,
+          "needs_processing": true,
+          "date_created_gmt": "2026-08-10T01:36:15",
+          "date_modified_gmt": "2026-08-10T01:36:16",
+          "date_completed_gmt": null,
+          "date_paid_gmt": null,
+          "currency_symbol": "₨",
+          "_links": {
+            "self": [
+              {
+                "href": "https://workable-sardine-d7aa43.instawp.site/wp-json/wc/v3/orders/60",
+                "targetHints": {
+                  "allow": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE"
+                  ]
+                }
+              }
+            ],
+            "collection": [
+              {
+                "href": "https://workable-sardine-d7aa43.instawp.site/wp-json/wc/v3/orders"
+              }
+            ],
+            "email_templates": [
+              {
+                "embeddable": true,
+                "href": "https://workable-sardine-d7aa43.instawp.site/wp-json/wc/v3/orders/60/actions/email_templates"
+              }
+            ],
+            "customer": [
+              {
+                "href": "https://workable-sardine-d7aa43.instawp.site/wp-json/wc/v3/customers/1"
+              }
+            ]
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "WooCommerce - New Order": {
+      "main": [
+        [
+          {
+            "node": "Set - Extract Order Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Extract Order Fields": {
+      "main": [
+        [
+          {
+            "node": "Fraud Detection Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Risk Level": {
+      "main": [
+        [
+          {
+            "node": "WooCommerce - Cancel Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WooCommerce - Hold Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Op - Low Risk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WooCommerce - Cancel Order": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WooCommerce - Hold Order": {
+      "main": [
+        [
+          {
+            "node": "Slack - Medium Risk Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Fraud Detection Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fraud Detection Agent": {
+      "main": [
+        [
+          {
+            "node": "Switch - Risk Level",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agent Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Slack - High Risk Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Slack - Workflow Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Fraud Detection Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Fraud Detection Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "1a7a0c6c-bd84-44fb-af2e-4648833f7917",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c5a5331973f441bde5fa004c1414d85455f24ba4151b34b9b3d4606cccd4ae0f"
+  },
+  "nodeGroups": [],
+  "id": "UkkB3Po9oNkI7O2I",
+  "tags": []
+}
