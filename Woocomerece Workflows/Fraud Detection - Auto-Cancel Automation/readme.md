@@ -4,7 +4,7 @@ This folder contains an exported n8n workflow that evaluates every new WooCommer
 
 ---
 
-![WooCommerce Fraud Detection Workflow](<Fraud Detection - Auto-Cancel Workflow Screenshot.png>)
+![WooCommerce Fraud Detection Workflow](https://github.com/shahzaib-1-no/N8N-Workflows/blob/81007a9ad96f1390fbfbb8911a0b6736b4e4fa1a/Woocomerece%20Workflows/Fraud%20Detection%20-%20Auto-Cancel%20Automation/Fraud%20Detection%20%20Auto-Cancel%20Workflow%20WooCommerce%20Screenshot%202026-08-09%20184704.png)
 ---
 
 ## 🎯 Key Benefits
